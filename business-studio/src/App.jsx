@@ -319,13 +319,48 @@ function App() {
                   );
                 }
 // Replace 'http://127.0.0.1:5000/api/save-layout' with this:
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
+<button 
+  onClick={async () => {
+    const currentPayload = { 
+      businessName, 
+      subdomain, 
+      layoutStyle, 
+      category, 
+      components: canvasComponents 
+    };
 
-const response = await fetch(`${backendUrl}/api/save-layout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(currentPayload)
-});
+    // 1. Save locally as a backup
+    localStorage.setItem('business_studio_persistent_db', JSON.stringify(currentPayload));
+
+    // 2. Safely grab the production or development URL
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
+
+    // 3. Fire the network request
+    try {
+      const response = await fetch(`${backendUrl}/api/save-layout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentPayload)
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        alert(`🎉 [SYSTEM ACTION RECOVERY SUCCESS]\n\n${responseData.message}`);
+      } else {
+        alert(`⚠️ Server rejected the payload: ${responseData.message}`);
+      }
+    } catch (networkError) {
+      console.error("Flask connection refused: ", networkError);
+      alert("⚠️ Failed to reach Flask server runtime.");
+    }
+  }} 
+  style={{ background: 'var(--accent)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontFamily: 'var(--sans)' }}
+>
+  Publish Website
+</button>
                 return null;
               })}
             </div>
