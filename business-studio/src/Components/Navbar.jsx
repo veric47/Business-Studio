@@ -6,7 +6,7 @@ export default function Navbar({ user, onLogout }) {
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
   const handleLogout = async () => {
-    await fetch(( import.meta.env.VITE_API_URL ||' https://business-studio-7tqf.onrender.com/api/auth/logout'), { method: 'POST', credentials: 'include' });
+    await fetch(( import.meta.env.VITE_API_URL ||'https://business-studio-7tqf.onrender.com/api/auth/logout'), { method: 'POST', credentials: 'include' });
     onLogout();
     navigate('/');
   };
