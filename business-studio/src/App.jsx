@@ -8,7 +8,7 @@ import Dashboard from './Pages/Dashboard';
 import StudioBuilder from './Pages/StudioBuilder';
 import Gallery from './Pages/Gallery';
 import SiteView from './Pages/SiteView';
-const API = 'http://localhost:8080';
+const API = 'https://business-studio-7tqf.onrender.com';
 function ProtectedRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
   return children;

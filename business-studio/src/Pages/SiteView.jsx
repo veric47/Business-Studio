@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-const API = 'http://localhost:8080';
+const API = 'https://business-studio-7tqf.onrender.com';
 const CATEGORY_ICONS = { Music: '🎵', Artwork: '🎨', Food: '🍽️', Delivery: '🚚', Clothing: '👗', News: '📰', Accommodation: '🏨' };
 export default function SiteView() {
   const { subdomain } = useParams();

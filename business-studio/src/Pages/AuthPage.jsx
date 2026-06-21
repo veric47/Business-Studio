@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-const API = 'http://localhost:8080';
+const API = 'https://business-studio-7tqf.onrender.com';
 export default function AuthPage({ mode = 'login', onLogin }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
