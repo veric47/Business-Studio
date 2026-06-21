@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-const API = 'https://business-studio-7tqf.onrender.com';
+const API = ' https://business-studio-7tqf.onrender.com';
 const CATEGORIES = [
   { id: 'Music', icon: '🎵', label: 'Music & Beats', desc: 'MP3 player, playlists, track listings' },
   { id: 'Artwork', icon: '🎨', label: 'Artwork & Literature', desc: 'Image galleries, portfolio, books' },
