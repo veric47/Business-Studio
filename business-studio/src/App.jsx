@@ -5,9 +5,9 @@ import Footer from './Components/Footer';
 import LandingPage from './Components/LandingPage';
 import AuthPage from './Components/AuthPage';
 import Dashboard from './Components/Dashboard';
-import StudioBuilder from './Components/StudioBuilder';
-import Gallery from './Components/Gallery';
-import SiteView from './Components/SiteView';
+import StudioBuilder from './Pages/StudioBuilder';
+import Gallery from './Pages/Gallery';
+import SiteView from './Pages/SiteView';
 const API = 'http://localhost:8080';
 function ProtectedRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
