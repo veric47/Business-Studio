@@ -121,7 +121,7 @@ export default function LandingPage() {
             <div className="card">
               <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Free</h3>
               <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 20 }}>Perfect for getting started</p>
-              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--text)', marginBottom: 24 }}>$0<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--text2)' }}>/month</span></div>
+              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--text)', marginBottom: 24 }}>Free<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--text2)' }}></span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
                 {['1 website', 'All 7 business categories', 'Free subdomain', 'Drag & drop builder', 'Basic templates', 'Gallery listing'].map(f => (
                   <div key={f} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: 'var(--text2)' }}>
@@ -135,7 +135,7 @@ export default function LandingPage() {
               <div style={{ position: 'absolute', top: 16, right: 16 }}><span className="badge badge-purple">⭐ Popular</span></div>
               <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Premium</h3>
               <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 20 }}>For serious businesses</p>
-              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--text)', marginBottom: 24 }}>$9.99<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--text2)' }}>/month</span></div>
+              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--text)', marginBottom: 24 }}>10,000 Naira<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--text2)' }}>/month</span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
                 {['Everything in Free', 'Up to 5 websites', 'Custom domain support', 'Advanced templates', 'Social media promotion', 'Priority support', 'Analytics dashboard', 'Remove BusinessStudio branding'].map(f => (
                   <div key={f} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: 'var(--text2)' }}>

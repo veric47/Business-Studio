@@ -56,7 +56,7 @@ export default function Dashboard({ user }) {
           </span>
         </div>
         {user?.plan !== 'premium' && (
-          <button className="btn btn-primary btn-sm">⭐ Upgrade to Premium — $9.99/mo</button>
+          <button className="btn btn-primary btn-sm">⭐ Upgrade to Premium — 10,000 Naira/mo</button>
         )}
       </div>
       {/* Sites Grid */}
