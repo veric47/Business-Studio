@@ -8,6 +8,8 @@ from functools import wraps
 from datetime import timedelta
 app = Flask(__name__)
 app.secret_key = 'businessstudio-secret-key-2024-change-in-prod'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 app.permanent_session_lifetime = timedelta(days=7)
 CORS(
     app,
