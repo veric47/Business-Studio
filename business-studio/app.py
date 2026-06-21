@@ -9,7 +9,7 @@ from datetime import timedelta
 app = Flask(__name__)
 app.secret_key = 'businessstudio-secret-key-2024-change-in-prod'
 app.permanent_session_lifetime = timedelta(days=7)
-CORS(app, supports_credentials=True, origins=['http://localhost:5000', 'http://0.0.0.0:5000'])
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
 def get_db():
     conn = sqlite3.connect(DB_PATH)
