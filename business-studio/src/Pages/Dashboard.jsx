@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-const API =import.meta.env.VITE_API_URL ||  'https://business-studio-7tqf.onrender.com';
+const API =import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
 const CATEGORY_ICONS = { Music: '🎵', Artwork: '🎨', Food: '🍽️', Delivery: '🚚', Clothing: '👗', News: '📰', Accommodation: '🏨' };
 export default function Dashboard({ user }) {
   const [sites, setSites] = useState([]);
