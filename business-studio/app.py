@@ -20,7 +20,10 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
-CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS}}, supports_credentials=True)
+CORS(app, 
+    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}}, 
+    origin=ALLOWED_ORIGINS,
+    supports_credentials=True)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
 
