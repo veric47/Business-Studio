@@ -6,8 +6,10 @@ import os
 import json
 from functools import wraps
 from datetime import timedelta
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = 'businessstudio-secret-key-2024-change-in-prod'
 app.permanent_session_lifetime = timedelta(days=7)
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
