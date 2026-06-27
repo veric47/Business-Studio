@@ -1,23 +1,24 @@
 import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
     <footer style={{ borderTop: '1px solid var(--border)', marginTop: 'auto', background: 'var(--bg2)' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 40 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <div style={{ width: 28, height: 28, background: 'var(--accent)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#fff', fontWeight: 700 }}>B</div>
+            <div style={{ width: 28, height: 28, background: 'var(--accent)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff' }}>B</div>
             <span style={{ fontWeight: 700, color: 'var(--text-h)', fontSize: 16 }}>BusinessStudio</span>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, maxWidth: 220 }}>
+          <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.7, maxWidth: 220 }}>
             The easiest way to build and launch your business website. No coding needed.
           </p>
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text)', marginBottom: 16 }}>Product</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Link to="/gallery" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e=>e.target.style.color='var(--text-h)'} onMouseOut={e=>e.target.style.color='var(--text)'}>Gallery</Link>
-            <Link to="/signup" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e=>e.target.style.color='var(--text-h)'} onMouseOut={e=>e.target.style.color='var(--text)'}>Get Started</Link>
-            <Link to="/#pricing" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e=>e.target.style.color='var(--text-h)'} onMouseOut={e=>e.target.style.color='var(--text)'}>Pricing</Link>
+            <Link to="/gallery" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = 'var(--text-h)'} onMouseOut={e => e.target.style.color = 'var(--text)'}>Gallery</Link>
+            <Link to="/signup" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = 'var(--text-h)'} onMouseOut={e => e.target.style.color = 'var(--text)'}>Get Started</Link>
+            <Link to="/#pricing" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }} onMouseOver={e => e.target.style.color = 'var(--text-h)'} onMouseOut={e => e.target.style.color = 'var(--text)'}>Pricing</Link>
           </div>
         </div>
         <div>
@@ -38,7 +39,7 @@ export default function Footer() {
         </div>
       </div>
       <div style={{ borderTop: '1px solid var(--border)', padding: '16px 24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <span style={{ fontSize: 13, color: 'var(--text)' }}>© 2024 BusinessStudio.com</span>
+        <span style={{ fontSize: 13, color: 'var(--text)' }}>2025 BusinessStudio.com — Built by Team ENT 312</span>
       </div>
     </footer>
   );

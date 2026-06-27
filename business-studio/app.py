@@ -6,26 +6,20 @@ import os
 import json
 from functools import wraps
 from datetime import timedelta
+
 app = Flask(__name__)
 app.secret_key = 'businessstudio-secret-key-2024-change-in-prod'
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
 app.permanent_session_lifetime = timedelta(days=7)
-CORS(
-    app,
-    resources={r"/api/*": {
-        "origins": [
-            "https://business-studio-green.vercel.app",
-            "https://business-studio-7tqf.onrender.com"
-        ]
-    }},
-    supports_credentials=True
-)
+
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
+
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
@@ -54,7 +48,9 @@ def init_db():
     )''')
     conn.commit()
     conn.close()
+
 init_db()
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -62,8 +58,11 @@ def login_required(f):
             return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
         return f(*args, **kwargs)
     return decorated
+
 def row_to_dict(row):
     return dict(row) if row else None
+
+# AUTH ROUTES
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -87,6 +86,7 @@ def register():
         return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
     finally:
         conn.close()
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -100,10 +100,12 @@ def login():
     session.permanent = True
     session['user_id'] = user['id']
     return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
+
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     session.clear()
     return jsonify({'status': 'success'})
+
 @app.route('/api/auth/me', methods=['GET'])
 def me():
     if 'user_id' not in session:
@@ -115,6 +117,8 @@ def me():
         session.clear()
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     return jsonify({'status': 'success', 'user': user})
+
+# SITES ROUTES
 @app.route('/api/sites', methods=['GET'])
 @login_required
 def get_my_sites():
@@ -124,6 +128,7 @@ def get_my_sites():
     for s in sites:
         s['components'] = json.loads(s['components'])
     return jsonify({'status': 'success', 'sites': sites})
+
 @app.route('/api/sites', methods=['POST'])
 @login_required
 def create_site():
@@ -150,6 +155,7 @@ def create_site():
         return jsonify({'status': 'error', 'message': 'Subdomain already taken'}), 409
     finally:
         conn.close()
+
 @app.route('/api/sites/<int:site_id>', methods=['PUT'])
 @login_required
 def update_site(site_id):
@@ -173,6 +179,7 @@ def update_site(site_id):
     site['components'] = json.loads(site['components'])
     conn.close()
     return jsonify({'status': 'success', 'site': site})
+
 @app.route('/api/sites/<int:site_id>', methods=['DELETE'])
 @login_required
 def delete_site(site_id):
@@ -181,6 +188,8 @@ def delete_site(site_id):
     conn.commit()
     conn.close()
     return jsonify({'status': 'success'})
+
+# GALLERY
 @app.route('/api/gallery', methods=['GET'])
 def gallery():
     conn = get_db()
@@ -191,6 +200,7 @@ def gallery():
     ).fetchall()]
     conn.close()
     return jsonify({'status': 'success', 'sites': sites})
+
 @app.route('/api/gallery/<subdomain>', methods=['GET'])
 def get_site_by_subdomain(subdomain):
     conn = get_db()
@@ -203,12 +213,14 @@ def get_site_by_subdomain(subdomain):
     conn.close()
     site['components'] = json.loads(site['components'])
     return jsonify({'status': 'success', 'site': site})
+
 @app.route('/api/check-subdomain/<subdomain>', methods=['GET'])
 def check_subdomain(subdomain):
     conn = get_db()
     site = conn.execute('SELECT id FROM sites WHERE subdomain = ?', (subdomain,)).fetchone()
     conn.close()
     return jsonify({'available': site is None})
+
 if __name__ == '__main__':
     print('BusinessStudio Flask backend running on port 8080.')
     app.run(debug=True, host='localhost', port=8080)
