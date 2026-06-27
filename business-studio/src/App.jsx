@@ -51,7 +51,8 @@ export default function App() {
         } else {
           setUser(null);
         }
-      } catch {
+      } catch (err) {
+        console.error(err);
         setUser(null);
       } finally {
         setAuthLoading(false);
@@ -61,7 +62,16 @@ export default function App() {
     checkLogin();
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await fetch(`${API}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error(err);
+    }
+
     setUser(null);
   }
 
@@ -90,7 +100,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-
         <Route
           path="/"
           element={
@@ -103,18 +112,22 @@ export default function App() {
         <Route
           path="/login"
           element={
-            user
-              ? <Navigate to="/dashboard" replace />
-              : <AuthPage mode="login" onLogin={setUser} />
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPage mode="login" onLogin={setUser} />
+            )
           }
         />
 
         <Route
           path="/signup"
           element={
-            user
-              ? <Navigate to="/dashboard" replace />
-              : <AuthPage mode="signup" onLogin={setUser} />
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPage mode="signup" onLogin={setUser} />
+            )
           }
         />
 
@@ -169,7 +182,6 @@ export default function App() {
             </AppLayout>
           }
         />
-
       </Routes>
     </BrowserRouter>
   );
