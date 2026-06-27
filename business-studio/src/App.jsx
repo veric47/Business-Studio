@@ -38,7 +38,11 @@ export default function App() {
       .catch(() => {})
       .finally(() => setAuthLoading(false));
   }, []);
-  const handleLogout = () => setUser(null);
+  const handleLogout = () => {
+    localStorage.removeItem('bs_token');
+    setUser(null);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('bs_token');
     setUser(null);
