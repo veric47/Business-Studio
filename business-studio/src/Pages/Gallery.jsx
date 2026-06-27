@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-const CATEGORY_ICONS = { Music: '🎵', Artwork: '🎨', Food: '🍽️', Delivery: '🚚', Clothing: '👗', News: '📰', Accommodation: '🏨' };
+const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
+const CATEGORY_ICONS = { Music: '', Artwork: '', Food: '', Delivery: '', Clothing: '', News: '', Accommodation: '' };
 const CATEGORY_COLORS = {
   Music: '#8b5cf6', Artwork: '#ec4899', Food: '#f59e0b', Delivery: '#3b82f6',
   Clothing: '#10b981', News: '#6366f1', Accommodation: '#ef4444'

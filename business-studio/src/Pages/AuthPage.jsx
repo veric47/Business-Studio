@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
 
 export default function AuthPage({ mode = 'login', onLogin }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
