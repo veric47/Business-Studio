@@ -35,6 +35,8 @@ export default function AuthPage({ mode = 'login', onLogin }) {
         ? '/api/auth/register'
         : '/api/auth/login';
 
+        console.log("Sending login request...");
+
       const res = await fetch(API + endpoint, {
         method: 'POST',
         credentials: 'include', // IMPORTANT
