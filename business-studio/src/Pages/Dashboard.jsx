@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
 
-const CATEGORY_ICONS = { Music: '', Artwork: '', Food: '', Delivery: '', Clothing: '', News: '', Accommodation: '' };
+const authHeaders = () => {
+  const token = localStorage.getItem('bs_token');
+  return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+};
 
 export default function Dashboard({ user }) {
   const [sites, setSites] = useState([]);
@@ -12,7 +15,7 @@ export default function Dashboard({ user }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch(API + '/api/sites', { credentials: 'include' })
+    fetch(API + '/api/sites', { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.status === 'success') setSites(d.sites); })
       .finally(() => setLoading(false));
@@ -21,7 +24,7 @@ export default function Dashboard({ user }) {
   const deleteSite = async (id) => {
     if (!confirm('Delete this site? This cannot be undone.')) return;
     setDeleting(id);
-    await fetch(`${API}/api/sites/${id}`, { method: 'DELETE', credentials: 'include' });
+    await fetch(`${API}/api/sites/${id}`, { method: 'DELETE', headers: authHeaders() });
     setSites(s => s.filter(site => site.id !== id));
     setDeleting(null);
   };

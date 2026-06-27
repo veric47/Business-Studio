@@ -28,13 +28,21 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   useEffect(() => {
-    fetch(API + '/api/auth/me', { credentials: 'include' })
+     const token = localStorage.getItem('bs_token');
+    if (!token) { setAuthLoading(false); return; }
+    fetch(API + '/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
       .then(r => r.json())
-      .then(d => { if (d.status === 'success') setUser(d.user); })
+       .then(d => { if (d.status === 'success') setUser(d.user); else localStorage.removeItem('bs_token'); })
       .catch(() => {})
       .finally(() => setAuthLoading(false));
   }, []);
   const handleLogout = () => setUser(null);
+  const handleLogout = () => {
+    localStorage.removeItem('bs_token');
+    setUser(null);
+  };
   if (authLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>

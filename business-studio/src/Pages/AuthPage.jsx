@@ -21,11 +21,12 @@ export default function AuthPage({ mode = 'login', onLogin }) {
       const res = await fetch(API + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+       
         body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || 'Something went wrong'); setLoading(false); return; }
+      localStorage.setItem('bs_token', data.token);
       onLogin(data.user);
       navigate('/dashboard');
     } catch {
