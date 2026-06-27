@@ -15,7 +15,7 @@ app.permanent_session_lifetime = timedelta(days=7)
 app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_SAMESITE="None",
-    SESSION_COOKIE_HTTPONLY=True
+    SESSION_COOKIE_HTTPONLY=True,
 )
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
@@ -24,25 +24,12 @@ ALLOWED_ORIGINS = [
 ]
 
 CORS(
-    app,
+     app,
     supports_credentials=True,
-    resources={
-        r"/api/*": {
-            "origins": ALLOWED_ORIGINS
-        }
-    }
+    origins=ALLOWED_ORIGINS,
 )
 
-@app.after_request
-def add_headers(response):
-    origin = request.headers.get("Origin")
-
-    if origin in ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-
-    return response
-
+ 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
 
 def get_db():
