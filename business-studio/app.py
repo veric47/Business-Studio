@@ -17,7 +17,7 @@ app.config['SESSION_COOKIE_SECURE'] = True
 
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
-    "https://business-studio-7tqf.onrender.com",
+    "http://localhost:5173",
 ]
 
 CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS}}, supports_credentials=True)
