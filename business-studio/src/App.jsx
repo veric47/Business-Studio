@@ -8,11 +8,16 @@ import Dashboard from './Pages/Dashboard';
 import StudioBuilder from './Pages/StudioBuilder';
 import Gallery from './Pages/Gallery';
 import SiteView from './Pages/SiteView';
-const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
+
+const API =
+  import.meta.env.VITE_API_URL ||
+  'https://business-studio-7tqf.onrender.com';
+
 function ProtectedRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
+
 function AppLayout({ user, onLogout, children, hideFooter }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -24,83 +29,140 @@ function AppLayout({ user, onLogout, children, hideFooter }) {
     </div>
   );
 }
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+
   useEffect(() => {
-     const token = localStorage.getItem('bs_token');
-    if (!token) { setAuthLoading(false); return; }
     fetch(API + '/api/auth/me', {
-      headers: { 'Authorization': `Bearer ${token}` }
+      credentials: 'include',
     })
-      .then(r => r.json())
-       .then(d => { if (d.status === 'success') setUser(d.user); else localStorage.removeItem('bs_token'); })
-      .catch(() => {})
-      .finally(() => setAuthLoading(false));
+      .then(async (r) => {
+        const data = await r.json();
+
+        if (r.ok && data.status === 'success') {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setAuthLoading(false);
+      });
   }, []);
+
   const handleLogout = () => {
-    localStorage.removeItem('bs_token');
     setUser(null);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('bs_token');
-    setUser(null);
-  };
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
-        <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          background: 'var(--bg)',
+        }}
+      >
+        <div
+          className="spinner"
+          style={{ width: 40, height: 40, borderWidth: 3 }}
+        />
       </div>
     );
   }
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={
-          <AppLayout user={user} onLogout={handleLogout}>
-            <LandingPage />
-          </AppLayout>
-        } />
-        <Route path="/login" element={
-          user ? <Navigate to="/dashboard" replace /> :
-          <AuthPage mode="login" onLogin={setUser} />
-        } />
-        <Route path="/signup" element={
-          user ? <Navigate to="/dashboard" replace /> :
-          <AuthPage mode="signup" onLogin={setUser} />
-        } />
-        <Route path="/gallery" element={
-          <AppLayout user={user} onLogout={handleLogout}>
-            <Gallery />
-          </AppLayout>
-        } />
-        <Route path="/site/:subdomain" element={
-          <SiteView />
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute user={user}>
+        <Route
+          path="/"
+          element={
             <AppLayout user={user} onLogout={handleLogout}>
-              <Dashboard user={user} />
+              <LandingPage />
             </AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/studio/:id" element={
-          <ProtectedRoute user={user}>
-            <AppLayout user={user} onLogout={handleLogout} hideFooter>
-              <StudioBuilder user={user} />
+          }
+        />
+
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPage mode="login" onLogin={setUser} />
+            )
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <AuthPage mode="signup" onLogin={setUser} />
+            )
+          }
+        />
+
+        <Route
+          path="/gallery"
+          element={
+            <AppLayout user={user} onLogout={handleLogout}>
+              <Gallery />
             </AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="*" element={
-          <AppLayout user={user} onLogout={handleLogout}>
-            <div style={{ textAlign: 'center', padding: '80px 24px' }}>
-              <div style={{ fontSize: 64, marginBottom: 20 }}>404</div>
-              <h2 style={{ marginBottom: 10 }}>Page not found</h2>
-              <a href="/" className="btn btn-secondary" style={{ display: 'inline-flex', marginTop: 16 }}>← Go Home</a>
-            </div>
-          </AppLayout>
-        } />
+          }
+        />
+
+        <Route path="/site/:subdomain" element={<SiteView />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute user={user}>
+              <AppLayout user={user} onLogout={handleLogout}>
+                <Dashboard user={user} />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/studio/:id"
+          element={
+            <ProtectedRoute user={user}>
+              <AppLayout user={user} onLogout={handleLogout} hideFooter>
+                <StudioBuilder user={user} />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <AppLayout user={user} onLogout={handleLogout}>
+              <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+                <div style={{ fontSize: 64, marginBottom: 20 }}>404</div>
+                <h2 style={{ marginBottom: 10 }}>Page not found</h2>
+                <a
+                  href="/"
+                  className="btn btn-secondary"
+                  style={{ display: 'inline-flex', marginTop: 16 }}
+                >
+                  ← Go Home
+                </a>
+              </div>
+            </AppLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
