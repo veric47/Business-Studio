@@ -12,19 +12,36 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = 'businessstudio-secret-key-2024-change-in-prod'
 app.permanent_session_lifetime = timedelta(days=7)
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_HTTPONLY=True
+)
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
-    "http://localhost:5173"
+    "http://localhost:5173",
     "http://localhost:5000",
 ]
 
-CORS(app, 
-    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}}, 
-    origin=ALLOWED_ORIGINS,
-    supports_credentials=True)
+CORS(
+    app,
+    supports_credentials=True,
+    resources={
+        r"/api/*": {
+            "origins": ALLOWED_ORIGINS
+        }
+    }
+)
+
+@app.after_request
+def add_headers(response):
+    origin = request.headers.get("Origin")
+
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
 
