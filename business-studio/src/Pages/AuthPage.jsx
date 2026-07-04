@@ -207,11 +207,11 @@ export default function AuthPage({ mode = 'login', onLogin }) {
               </div>
             )}
 
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 24, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', backgroundColor: 'var(--bg2)' }}>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={handleGoogleError}
-                width={400}
+                width={350}
               />
             </div>
 
@@ -246,20 +246,25 @@ export default function AuthPage({ mode = 'login', onLogin }) {
               {isSignup && (
                 <div className="form-group">
                   <label className="form-label">Profile Picture (Optional)</label>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                     {profilePreview && (
                       <img
                         src={profilePreview}
                         alt="Profile preview"
-                        style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }}
+                        style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }}
                       />
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfilePictureChange}
-                      style={{ flex: 1 }}
-                    />
+                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, border: '2px dashed var(--border)', borderRadius: 'var(--radius)', backgroundColor: 'var(--bg2)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        style={{ display: 'none' }}
+                      />
+                      <span style={{ color: 'var(--text)', fontSize: 14, fontWeight: 500 }}>
+                        {profilePicture ? '✓ Image Selected' : '📷 Choose Image'}
+                      </span>
+                    </label>
                   </div>
                 </div>
               )}
