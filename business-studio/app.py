@@ -7,6 +7,8 @@ import json
 from functools import wraps
 from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
+from google.auth.transport import requests
+from google.oauth2 import id_token
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -121,6 +123,49 @@ def login():
 def logout():
     session.clear()
     return jsonify({'status': 'success'})
+
+@app.route('/api/auth/google', methods=['POST'])
+def google_login():
+    data = request.get_json()
+    token = data.get('token')
+    
+    if not token:
+        return jsonify({'status': 'error', 'message': 'No token provided'}), 400
+    
+    try:
+        # Verify the token with Google
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), '675706282959-4p37tqg14u9b3u0h5j5r3j5r3j5r3j5r.apps.googleusercontent.com')
+        
+        email = idinfo['email'].lower()
+        name = idinfo.get('name', 'User')
+        
+        conn = get_db()
+        
+        # Check if user exists
+        user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
+        
+        if not user:
+            # Create new user with a placeholder password for Google accounts
+            try:
+                placeholder_password = generate_password_hash('google_oauth_user')
+                conn.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', 
+                           (name, email, placeholder_password))
+                conn.commit()
+                user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
+            except sqlite3.IntegrityError:
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
+        
+        conn.close()
+        
+        # Set session
+        session.permanent = True
+        session['user_id'] = user['id']
+        
+        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
+    
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': 'Token verification failed'}), 401
 
 @app.route('/api/auth/me', methods=['GET'])
 def me():
