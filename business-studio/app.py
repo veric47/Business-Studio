@@ -68,13 +68,13 @@ def send_email(to_email, subject, html_content):
         
         return True
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print("Error sending email: {e}")
         return False
 
 def send_welcome_email(email, name):
     """Send welcome email to new users"""
     subject = "Welcome to Business Studio! 🎉"
-    html_content = f"""
+    html_content = """
     <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -97,7 +97,7 @@ def send_welcome_email(email, name):
 def send_login_alert_email(email, name):
     """Send login alert email"""
     subject = "You just logged into Business Studio"
-    html_content = f"""
+    html_content = """
     <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -326,7 +326,7 @@ def upload_profile_picture():
         return jsonify({'status': 'success', 'user': user, 'profile_picture_url': profile_picture_url})
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': 'Upload failed: {str(e)}'}), 500
 
 # SITES ROUTES
 @app.route('/api/sites', methods=['GET'])
@@ -439,5 +439,5 @@ def health():
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
-    print(f'BusinessStudio Flask backend running on port {port}.')
+    print('BusinessStudio Flask backend running on port {port}.')
     app.run(debug=debug, host='0.0.0.0', port=port)
