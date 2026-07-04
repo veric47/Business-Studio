@@ -46,9 +46,17 @@ export default function Navbar({ user, onLogout }) {
                   onClick={() => setMenuOpen(!menuOpen)}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 100, padding: '4px 12px 4px 4px', cursor: 'pointer' }}
                 >
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>
-                    {user.name?.[0]?.toUpperCase()}
-                  </div>
+                  {user.profile_picture_url ? (
+                    <img
+                      src={user.profile_picture_url}
+                      alt={user.name}
+                      style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>
+                      {user.name?.[0]?.toUpperCase()}
+                    </div>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text-h)', fontWeight: 500 }}>{user.name?.split(' ')[0]}</span>
                 </button>
                 {menuOpen && (

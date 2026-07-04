@@ -17,6 +17,8 @@ export default function AuthPage({ mode = 'login', onLogin }) {
     password: '',
   });
 
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePreview, setProfilePreview] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +30,18 @@ export default function AuthPage({ mode = 'login', onLogin }) {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePicture(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
@@ -89,6 +103,28 @@ export default function AuthPage({ mode = 'login', onLogin }) {
         setError(data.message || 'Something went wrong');
         setLoading(false);
         return;
+      }
+
+      // Upload profile picture if provided and it's signup
+      if (isSignup && profilePicture) {
+        const formData = new FormData();
+        formData.append('file', profilePicture);
+
+        try {
+          const uploadRes = await fetch(API + '/api/auth/upload-profile-picture', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+
+          const uploadData = await uploadRes.json();
+          if (uploadRes.ok) {
+            data.user = uploadData.user;
+          }
+        } catch (uploadErr) {
+          console.error('Profile picture upload failed:', uploadErr);
+          // Continue anyway, auth succeeded
+        }
       }
 
       onLogin(data.user);
@@ -204,6 +240,27 @@ export default function AuthPage({ mode = 'login', onLogin }) {
                     placeholder="Your name"
                     required
                   />
+                </div>
+              )}
+
+              {isSignup && (
+                <div className="form-group">
+                  <label className="form-label">Profile Picture (Optional)</label>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                    {profilePreview && (
+                      <img
+                        src={profilePreview}
+                        alt="Profile preview"
+                        style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePictureChange}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
                 </div>
               )}
 

@@ -13,8 +13,17 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
 load_dotenv()
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -122,8 +131,16 @@ def init_db():
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         plan TEXT DEFAULT 'free',
+        profile_picture_url TEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    
+    # Add profile_picture_url column if it doesn't exist (for existing databases)
+    c.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in c.fetchall()]
+    if 'profile_picture_url' not in columns:
+        c.execute('ALTER TABLE users ADD COLUMN profile_picture_url TEXT DEFAULT NULL')
+    
     c.execute('''CREATE TABLE IF NOT EXISTS sites (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -178,7 +195,7 @@ def register():
         # Send welcome email
         send_welcome_email(email, name)
         
-        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}}), 201
+        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}}), 201
     except sqlite3.IntegrityError:
         return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
     finally:
@@ -200,7 +217,7 @@ def login():
     # Send login alert email
     send_login_alert_email(user['email'], user['name'])
     
-    return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
+    return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
@@ -254,7 +271,7 @@ def google_login():
         else:
             send_login_alert_email(user['email'], user['name'])
         
-        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
+        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
     
     except Exception as e:
         return jsonify({'status': 'error', 'message': 'Token verification failed'}), 401
@@ -264,12 +281,50 @@ def me():
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
     conn = get_db()
-    user = row_to_dict(conn.execute('SELECT id, name, email, plan, created_at FROM users WHERE id = ?', (session['user_id'],)).fetchone())
+    user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?', (session['user_id'],)).fetchone())
     conn.close()
     if not user:
         session.clear()
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     return jsonify({'status': 'success', 'user': user})
+
+@app.route('/api/auth/upload-profile-picture', methods=['POST'])
+@login_required
+def upload_profile_picture():
+    """Upload user profile picture to Cloudinary"""
+    if 'file' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+    
+    try:
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(
+            file,
+            folder='business-studio/profiles',
+            resource_type='auto',
+            quality='auto'
+        )
+        
+        profile_picture_url = result['secure_url']
+        
+        # Update user profile picture in database
+        conn = get_db()
+        conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?', 
+                    (profile_picture_url, session['user_id']))
+        conn.commit()
+        
+        user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?', 
+                                        (session['user_id'],)).fetchone())
+        conn.close()
+        
+        return jsonify({'status': 'success', 'user': user, 'profile_picture_url': profile_picture_url})
+    
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
 
 # SITES ROUTES
 @app.route('/api/sites', methods=['GET'])
