@@ -37,6 +37,8 @@ app.config.update(
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
     "https://business-studio-7tqf.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 CORS(
@@ -429,6 +431,13 @@ def check_subdomain(subdomain):
     conn.close()
     return jsonify({'available': site is None})
 
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint for deployment services"""
+    return jsonify({'status': 'ok'}), 200
+
 if __name__ == '__main__':
-    print('BusinessStudio Flask backend running on port 8080.')
-    app.run(debug=True, host='localhost', port=8080)
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_ENV', 'development') == 'development'
+    print(f'BusinessStudio Flask backend running on port {port}.')
+    app.run(debug=debug, host='0.0.0.0', port=port)
