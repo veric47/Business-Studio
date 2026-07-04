@@ -9,6 +9,12 @@ from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.auth.transport import requests
 from google.oauth2 import id_token
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -29,6 +35,75 @@ CORS(
     supports_credentials=True,
     origins=ALLOWED_ORIGINS,
 )
+
+# Email Configuration (Gmail SMTP)
+GMAIL_EMAIL = os.getenv('GMAIL_EMAIL', 'your-email@gmail.com')
+GMAIL_PASSWORD = os.getenv('GMAIL_PASSWORD', 'your-app-password')
+
+def send_email(to_email, subject, html_content):
+    """Send email using Gmail SMTP"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = GMAIL_EMAIL
+        msg['To'] = to_email
+        
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
+        
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(GMAIL_EMAIL, GMAIL_PASSWORD)
+            server.sendmail(GMAIL_EMAIL, to_email, msg.as_string())
+        
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+def send_welcome_email(email, name):
+    """Send welcome email to new users"""
+    subject = "Welcome to Business Studio! 🎉"
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+            <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h2 style="color: #333;">Welcome to Business Studio, {name}! 👋</h2>
+                <p style="color: #666; font-size: 16px;">Thank you for signing up! We're excited to have you on board.</p>
+                <p style="color: #666; font-size: 16px;">You can now:</p>
+                <ul style="color: #666; font-size: 16px;">
+                    <li>Create beautiful business websites</li>
+                    <li>Customize your site with ease</li>
+                    <li>Publish and share your website</li>
+                </ul>
+                <p style="color: #666; font-size: 16px;">Ready to get started? Visit your dashboard to create your first site!</p>
+                <p style="color: #999; font-size: 14px; margin-top: 30px;">Best regards,<br>The Business Studio Team</p>
+            </div>
+        </body>
+    </html>
+    """
+    return send_email(email, subject, html_content)
+
+def send_login_alert_email(email, name):
+    """Send login alert email"""
+    subject = "You just logged into Business Studio"
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+            <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h2 style="color: #333;">Login Notification</h2>
+                <p style="color: #666; font-size: 16px;">Hi {name},</p>
+                <p style="color: #666; font-size: 16px;">You successfully logged into your Business Studio account.</p>
+                <p style="color: #666; font-size: 14px; background-color: #f0f0f0; padding: 15px; border-radius: 5px;">
+                    <strong>Time:</strong> {timedelta()} (just now)<br>
+                    <strong>Account:</strong> {email}
+                </p>
+                <p style="color: #666; font-size: 16px;">If this wasn't you, please change your password immediately.</p>
+                <p style="color: #999; font-size: 14px; margin-top: 30px;">Best regards,<br>The Business Studio Team</p>
+            </div>
+        </body>
+    </html>
+    """
+    return send_email(email, subject, html_content)
 
  
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
@@ -99,6 +174,10 @@ def register():
         user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
         session.permanent = True
         session['user_id'] = user['id']
+        
+        # Send welcome email
+        send_welcome_email(email, name)
+        
         return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}}), 201
     except sqlite3.IntegrityError:
         return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
@@ -117,6 +196,10 @@ def login():
         return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
     session.permanent = True
     session['user_id'] = user['id']
+    
+    # Send login alert email
+    send_login_alert_email(user['email'], user['name'])
+    
     return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -152,15 +235,24 @@ def google_login():
                            (name, email, placeholder_password))
                 conn.commit()
                 user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
+                is_new_user = True
             except sqlite3.IntegrityError:
                 conn.close()
                 return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
+        else:
+            is_new_user = False
         
         conn.close()
         
         # Set session
         session.permanent = True
         session['user_id'] = user['id']
+        
+        # Send appropriate email
+        if is_new_user:
+            send_welcome_email(user['email'], user['name'])
+        else:
+            send_login_alert_email(user['email'], user['name'])
         
         return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan']}})
     
