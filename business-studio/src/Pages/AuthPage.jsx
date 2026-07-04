@@ -8,7 +8,7 @@ const API =
   'https://business-studio-7tqf.onrender.com';
 
 // Replace with your Google OAuth Client ID from Google Cloud Console
-const GOOGLE_CLIENT_ID = '675706282959-4p37tqg14u9b3u0h5j5r3j5r3j5r3j5r.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '647592716254-lfguur8te3na1ju4ec30huem66877n0e.apps.googleusercontent.com';
 
 export default function AuthPage({ mode = 'login', onLogin }) {
   const [form, setForm] = useState({
