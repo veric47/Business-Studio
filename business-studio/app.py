@@ -134,7 +134,7 @@ def google_login():
     
     try:
         # Verify the token with Google
-        idinfo = id_token.verify_oauth2_token(token, requests.Request(), '675706282959-4p37tqg14u9b3u0h5j5r3j5r3j5r3j5r.apps.googleusercontent.com')
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), '647592716254-lfguur8te3na1ju4ec30huem66877n0e.apps.googleusercontent.com')
         
         email = idinfo['email'].lower()
         name = idinfo.get('name', 'User')
