@@ -96,21 +96,24 @@ function RenderComponent({ comp, theme }) {
     </div>
   );
 
-  if (comp.type === 'audio_player') return (
-    <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ width: 56, height: 56, borderRadius: 8, background: `${theme.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💿</div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, color: theme.textH, marginBottom: 4 }}>{comp.title}</div>
-        {comp.url ? (
-          <audio controls style={{ width: '100%', marginTop: 8 }} src={comp.url}><track kind="captions"/></audio>
-        ) : (
-          <div style={{ fontSize: 13, color: theme.text, background: `${theme.accent}15`, padding: '4px 10px', borderRadius: 4, display: 'inline-block' }}>
-            Music Track
-          </div>
-        )}
+ if (comp.type === 'audio_player') {
+  const audio = getAudioEmbed(comp.url);
+  return (
+    <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: audio ? 14 : 0 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 8, background: `${theme.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💿</div>
+        <div style={{ fontWeight: 600, color: theme.textH }}>{comp.title}</div>
       </div>
+      {audio?.type === 'direct' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
+      {audio?.type === 'soundcloud' && <iframe title={comp.title || 'SoundCloud player'} width="100%" height="120" scrolling="no" frameBorder="no" allow="autoplay" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+      {audio?.type === 'spotify' && <iframe title={comp.title || 'Spotify player'} width="100%" height="152" frameBorder="0" allow="encrypted-media" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+      {audio?.type === 'audiomack' && <iframe title={comp.title || 'Audiomack player'} width="100%" height="252" frameBorder="0" scrolling="no" allowFullScreen src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+      {audio?.type === 'linkout' && <a href={audio.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '10px 20px', background: theme.accent, color: '#fff', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>{audio.label}</a>}
+      {audio?.type === 'unknown' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
+      {!audio && <div style={{ fontSize: 13, color: theme.text, background: `${theme.accent}15`, padding: '4px 10px', borderRadius: 4, display: 'inline-block' }}>Music Track</div>}
     </div>
   );
+}
 
   if (comp.type === 'image') return (
     <div>
@@ -180,18 +183,22 @@ function RenderComponent({ comp, theme }) {
     </div>
   );
 
-  if (comp.type === 'video') return (
+ if (comp.type === 'video') {
+  const embedUrl = getYouTubeEmbedUrl(comp.url);
+  return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.textH, marginBottom: 12 }}>{comp.title || 'Video'}</h2>
-      {comp.url ? (
+      {embedUrl ? (
         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 12 }}>
-          <iframe src={comp.url.replace('watch?v=', 'embed/')} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', borderRadius: 12 }} title={comp.title || 'Video'} allowFullScreen />
+          <iframe src={embedUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', borderRadius: 12 }} title={comp.title || 'Video'} allowFullScreen />
         </div>
+      ) : comp.url ? (
+        <div style={{ padding: 24, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>⚠ Couldn't recognize this as a YouTube link</div>
       ) : (
         <div style={{ padding: 60, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>🎬 Video section</div>
       )}
     </div>
   );
-
+}
   return null;
 }

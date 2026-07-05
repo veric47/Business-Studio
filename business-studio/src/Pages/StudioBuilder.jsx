@@ -152,6 +152,7 @@ function TextEditor({ comp, onChange }) {
 }
 
 function AudioEditor({ comp, onChange }) {
+  const audio = getAudioEmbed(comp.url);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div className="form-group">
@@ -159,14 +160,30 @@ function AudioEditor({ comp, onChange }) {
         <input value={comp.title || ''} onChange={e => onChange({ ...comp, title: e.target.value })} placeholder="e.g. Summer Vibes - Beat #1" />
       </div>
       <div className="form-group">
-        <label className="form-label">Audio URL (MP3 link)</label>
+        <label className="form-label">Audio URL</label>
         <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="https://example.com/track.mp3" />
-        <span className="form-hint">Paste a direct MP3 URL or SoundCloud embed link</span>
+        <span className="form-hint">Direct MP3/WAV, SoundCloud, Spotify, or Audiomack link (Boomplay links out instead of playing inline)</span>
       </div>
+      {comp.url && (
+        <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+          {audio?.type === 'direct' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Direct audio file detected</div>}
+          {audio?.type === 'soundcloud' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ SoundCloud link detected</div>}
+          {audio?.type === 'spotify' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Spotify link detected</div>}
+          {audio?.type === 'audiomack' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Audiomack link detected</div>}
+          {audio?.type === 'linkout' && <div style={{ fontSize: 12, color: 'var(--accent2)', marginBottom: 8 }}>ℹ Boomplay has no inline player — this will show a "Listen on Boomplay" button instead</div>}
+          {audio?.type === 'unknown' && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>⚠ Link type not recognized — will try to play as direct audio, but may not work</div>}
+
+          {audio?.type === 'direct' && <audio controls style={{ width: '100%' }} src={audio.url} />}
+          {audio?.type === 'soundcloud' && <iframe title="SoundCloud preview" width="100%" height="120" scrolling="no" frameBorder="no" allow="autoplay" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+          {audio?.type === 'spotify' && <iframe title="Spotify preview" width="100%" height="152" frameBorder="0" allow="encrypted-media" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+          {audio?.type === 'audiomack' && <iframe title="Audiomack preview" width="100%" height="252" frameBorder="0" scrolling="no" allowFullScreen src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+          {audio?.type === 'linkout' && <a href={audio.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">{audio.label}</a>}
+          {audio?.type === 'unknown' && <audio controls style={{ width: '100%' }} src={audio.url} />}
+        </div>
+      )}
     </div>
   );
 }
-
 function ImageEditor({ comp, onChange }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -304,6 +321,62 @@ function VideoEditor({ comp, onChange }) {
       </div>
     </div>
   );
+}
+function getYouTubeEmbedUrl(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+  let videoId = null;
+
+  let m = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
+  if (m) videoId = m[1];
+
+  if (!videoId) {
+    m = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/); // handles extra params before/after v=
+    if (m) videoId = m[1];
+  }
+  if (!videoId) {
+    m = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
+    if (m) videoId = m[1];
+  }
+  if (!videoId) {
+    m = trimmed.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{6,})/);
+    if (m) videoId = m[1];
+  }
+
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+}
+
+function getAudioEmbed(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+
+  // Direct audio file
+  if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
+    return { type: 'direct', url: trimmed };
+  }
+  // SoundCloud
+  if (/soundcloud\.com/i.test(trimmed)) {
+    return {
+      type: 'soundcloud',
+      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(trimmed)}&color=%237c3aed&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false`,
+    };
+  }
+  // Spotify (track/album/playlist/episode)
+  if (/open\.spotify\.com\/(track|album|playlist|episode)\//i.test(trimmed)) {
+    return { type: 'spotify', embedUrl: trimmed.replace('open.spotify.com/', 'open.spotify.com/embed/') };
+  }
+  // Audiomack song
+  let m = trimmed.match(/audiomack\.com\/song\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed/song/${m[1]}/${m[2]}` };
+  // Audiomack album
+  m = trimmed.match(/audiomack\.com\/album\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed-album/${m[1]}/${m[2]}` };
+  // Boomplay — no public embed exists, so we link out instead
+  if (/boomplay\.com/i.test(trimmed)) {
+    return { type: 'linkout', url: trimmed, label: '▶ Listen on Boomplay' };
+  }
+  // Unknown — try as direct audio, but flag it
+  return { type: 'unknown', url: trimmed };
 }
 
 function ComponentEditor({ comp, onChange }) {
