@@ -24,7 +24,7 @@ export default function Navbar({ user, onLogout }) {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
 
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-          <img src={logo} alt="Business Studio Logo" style={{ width: 200, height: 200, objectFit: 'contain', borderRadius: 8 }} />
+          <img src={logo} alt="Business Studio Logo" style={{ width: 100, height: 100, objectFit: 'contain', borderRadius: 8 }} />
           <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-h)' }}>
             Business<span style={{ color: 'var(--accent)' }}>Studio</span>
           </span>
