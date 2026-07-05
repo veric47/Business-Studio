@@ -5,7 +5,7 @@ import sqlite3
 import os
 import json
 from functools import wraps
-from datetime import timedelta
+from datetime import datetime, timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.auth.transport import requests
 from google.oauth2 import id_token
@@ -15,6 +15,7 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
+import threading
 
 load_dotenv()
 
@@ -37,6 +38,8 @@ app.config.update(
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
     "https://business-studio-7tqf.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 CORS(
@@ -56,23 +59,23 @@ def send_email(to_email, subject, html_content):
         msg['Subject'] = subject
         msg['From'] = GMAIL_EMAIL
         msg['To'] = to_email
-        
+
         part = MIMEText(html_content, 'html')
         msg.attach(part)
-        
+
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(GMAIL_EMAIL, GMAIL_PASSWORD)
             server.sendmail(GMAIL_EMAIL, to_email, msg.as_string())
-        
+
         return True
     except Exception as e:
-        print("Error sending email: {e}")
+        print(f"Error sending email: {e}")
         return False
 
 def send_welcome_email(email, name):
     """Send welcome email to new users"""
     subject = "Welcome to Business Studio! 🎉"
-    html_content = """
+    html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -95,7 +98,8 @@ def send_welcome_email(email, name):
 def send_login_alert_email(email, name):
     """Send login alert email"""
     subject = "You just logged into Business Studio"
-    html_content = """
+    login_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="background-color: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -103,7 +107,7 @@ def send_login_alert_email(email, name):
                 <p style="color: #666; font-size: 16px;">Hi {name},</p>
                 <p style="color: #666; font-size: 16px;">You successfully logged into your Business Studio account.</p>
                 <p style="color: #666; font-size: 14px; background-color: #f0f0f0; padding: 15px; border-radius: 5px;">
-                    <strong>Time:</strong> {timedelta()} (just now)<br>
+                    <strong>Time:</strong> {login_time}<br>
                     <strong>Account:</strong> {email}
                 </p>
                 <p style="color: #666; font-size: 16px;">If this wasn't you, please change your password immediately.</p>
@@ -114,7 +118,7 @@ def send_login_alert_email(email, name):
     """
     return send_email(email, subject, html_content)
 
- 
+
 DB_PATH = os.path.join(os.path.dirname(__file__), 'businessstudio.db')
 
 def get_db():
@@ -134,13 +138,13 @@ def init_db():
         profile_picture_url TEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    
+
     # Add profile_picture_url column if it doesn't exist (for existing databases)
     c.execute("PRAGMA table_info(users)")
     columns = [col[1] for col in c.fetchall()]
     if 'profile_picture_url' not in columns:
         c.execute('ALTER TABLE users ADD COLUMN profile_picture_url TEXT DEFAULT NULL')
-    
+
     c.execute('''CREATE TABLE IF NOT EXISTS sites (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -178,6 +182,7 @@ def register():
     data = request.get_json()
     name = data.get('name', '').strip()
     email = data.get('email', '').strip().lower()
+
     password = data.get('password', '')
     if not name or not email or not password:
         return jsonify({'status': 'error', 'message': 'All fields required'}), 400
@@ -191,10 +196,10 @@ def register():
         user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
         session.permanent = True
         session['user_id'] = user['id']
-        
-        # Send welcome email
-        send_welcome_email(email, name)
-        
+
+        # Send welcome email in the background so the request doesn't block on SMTP
+        threading.Thread(target=send_welcome_email, args=(email, name), daemon=True).start()
+
         return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}}), 201
     except sqlite3.IntegrityError:
         return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
@@ -213,10 +218,10 @@ def login():
         return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
     session.permanent = True
     session['user_id'] = user['id']
-    
-    # Send login alert email
-    send_login_alert_email(user['email'], user['name'])
-    
+
+    # Send login alert email in the background so the request doesn't block on SMTP
+    threading.Thread(target=send_login_alert_email, args=(user['email'], user['name']), daemon=True).start()
+
     return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -228,27 +233,27 @@ def logout():
 def google_login():
     data = request.get_json()
     token = data.get('token')
-    
+
     if not token:
         return jsonify({'status': 'error', 'message': 'No token provided'}), 400
-    
+
     try:
         # Verify the token with Google
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), '647592716254-lfguur8te3na1ju4ec30huem66877n0e.apps.googleusercontent.com')
-        
+
         email = idinfo['email'].lower()
         name = idinfo.get('name', 'User')
-        
+
         conn = get_db()
-        
+
         # Check if user exists
         user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
-        
+
         if not user:
             # Create new user with a placeholder password for Google accounts
             try:
                 placeholder_password = generate_password_hash('google_oauth_user')
-                conn.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', 
+                conn.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
                            (name, email, placeholder_password))
                 conn.commit()
                 user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
@@ -258,22 +263,23 @@ def google_login():
                 return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
         else:
             is_new_user = False
-        
+
         conn.close()
-        
+
         # Set session
         session.permanent = True
         session['user_id'] = user['id']
-        
-        # Send appropriate email
+
+        # Send appropriate email in the background so the request doesn't block on SMTP
         if is_new_user:
-            send_welcome_email(user['email'], user['name'])
+            threading.Thread(target=send_welcome_email, args=(user['email'], user['name']), daemon=True).start()
         else:
-            send_login_alert_email(user['email'], user['name'])
-        
+            threading.Thread(target=send_login_alert_email, args=(user['email'], user['name']), daemon=True).start()
+
         return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
-    
+
     except Exception as e:
+        print(f"Google token verification failed: {e}")
         return jsonify({'status': 'error', 'message': 'Token verification failed'}), 401
 
 @app.route('/api/auth/me', methods=['GET'])
@@ -294,12 +300,12 @@ def upload_profile_picture():
     """Upload user profile picture to Cloudinary"""
     if 'file' not in request.files:
         return jsonify({'status': 'error', 'message': 'No file provided'}), 400
-    
+
     file = request.files['file']
-    
+
     if file.filename == '':
         return jsonify({'status': 'error', 'message': 'No file selected'}), 400
-    
+
     try:
         # Upload to Cloudinary
         result = cloudinary.uploader.upload(
@@ -308,23 +314,23 @@ def upload_profile_picture():
             resource_type='auto',
             quality='auto'
         )
-        
+
         profile_picture_url = result['secure_url']
-        
+
         # Update user profile picture in database
         conn = get_db()
-        conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?', 
+        conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?',
                     (profile_picture_url, session['user_id']))
         conn.commit()
-        
-        user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?', 
+
+        user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?',
                                         (session['user_id'],)).fetchone())
         conn.close()
-        
+
         return jsonify({'status': 'success', 'user': user, 'profile_picture_url': profile_picture_url})
-    
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': 'Upload failed: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
 
 # SITES ROUTES
 @app.route('/api/sites', methods=['GET'])
@@ -437,5 +443,5 @@ def health():
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
-    print('BusinessStudio Flask backend running on port {port}.')
+    print(f'BusinessStudio Flask backend running on port {port}.')
     app.run(debug=debug, host='0.0.0.0', port=port)
