@@ -36,7 +36,7 @@ export default function Navbar({ user, onLogout }) {
           {!user ? (
             <>
               <Link to="/login" className="btn btn-ghost" style={{ fontSize: 14 }}>Log in</Link>
-              <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
+              <Link to="/signup" className="btn btn-primary gradient btn-sm">Get Started</Link>
             </>
           ) : (
             <>

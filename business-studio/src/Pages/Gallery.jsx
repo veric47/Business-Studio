@@ -112,7 +112,7 @@ export default function Gallery() {
         <div style={{ textAlign: 'center', marginTop: 60, padding: '40px 24px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 10 }}>Want to be featured here?</h2>
           <p style={{ color: 'var(--text-m)', marginBottom: 24 }}>Create your business website and publish it to the gallery.</p>
-          <Link to="/signup" className="btn btn-primary btn-lg">Start Building →</Link>
+          <Link to="/signup" className="btn btn-primary gradient btn-lg">Start Building →</Link>
         </div>
       )}
     </div>

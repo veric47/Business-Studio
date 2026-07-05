@@ -6,11 +6,11 @@
   --text: #6b7280;
   --text-h: #111827;
   --text-m: #374151;
-  --accent:  #D61E1C;
-  --accent2: #0C4891;
-  --accent-glow: rgba(124, 58, 237, 0.2);
-  --accent-bg: rgba(124, 58, 237, 0.08);
-  --accent-border: rgba(124, 58, 237, 0.3);
+  --accent: #D61E1C;
+--accent2: #0C4891;
+--accent-glow: rgba(214, 30, 28, 0.2);
+--accent-bg: rgba(214, 30, 28, 0.08);
+--accent-border: rgba(214, 30, 28, 0.3);
   --green: #059669;
   --red: #dc2626;
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -166,10 +166,14 @@ button {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+ background: linear-gradient(135deg, #D61E1C, #0C4891);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
 
 .glow-border {
