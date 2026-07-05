@@ -37,9 +37,6 @@ app.config.update(
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
     "https://business-studio-7tqf.onrender.com",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    
 ]
 
 CORS(
