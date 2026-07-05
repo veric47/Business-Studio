@@ -445,3 +445,28 @@ if __name__ == '__main__':
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
     print(f'BusinessStudio Flask backend running on port {port}.')
     app.run(debug=debug, host='0.0.0.0', port=port)
+
+ADMIN_SECRET = os.getenv('ADMIN_SECRET', 'change-this-to-something-only-you-know')
+
+@app.route('/api/admin/sites/<int:site_id>', methods=['DELETE'])
+def admin_delete_site(site_id):
+    provided_secret = request.headers.get('X-Admin-Secret')
+    if provided_secret != ADMIN_SECRET:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    conn = get_db()
+    conn.execute('DELETE FROM sites WHERE id = ?', (site_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/admin/sites', methods=['GET'])
+def admin_list_sites():
+    provided_secret = request.headers.get('X-Admin-Secret')
+    if provided_secret != ADMIN_SECRET:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    conn = get_db()
+    sites = [row_to_dict(r) for r in conn.execute(
+        'SELECT s.id, s.business_name, s.subdomain, s.category, u.email as owner_email FROM sites s JOIN users u ON s.user_id = u.id ORDER BY s.id'
+    ).fetchall()]
+    conn.close()
+    return jsonify({'status': 'success', 'sites': sites})
