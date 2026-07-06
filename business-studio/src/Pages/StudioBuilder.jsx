@@ -331,7 +331,7 @@ function getYouTubeEmbedUrl(url) {
   if (m) videoId = m[1];
 
   if (!videoId) {
-    m = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/); // handles extra params before/after v=
+    m = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
     if (m) videoId = m[1];
   }
   if (!videoId) {
@@ -350,35 +350,27 @@ function getAudioEmbed(url) {
   if (!url || !url.trim()) return null;
   const trimmed = url.trim();
 
-  // Direct audio file
   if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
     return { type: 'direct', url: trimmed };
   }
-  // SoundCloud
   if (/soundcloud\.com/i.test(trimmed)) {
     return {
       type: 'soundcloud',
       embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(trimmed)}&color=%237c3aed&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false`,
     };
   }
-  // Spotify (track/album/playlist/episode)
   if (/open\.spotify\.com\/(track|album|playlist|episode)\//i.test(trimmed)) {
     return { type: 'spotify', embedUrl: trimmed.replace('open.spotify.com/', 'open.spotify.com/embed/') };
   }
-  // Audiomack song
   let m = trimmed.match(/audiomack\.com\/song\/([^/]+)\/([^/?]+)/i);
   if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed/song/${m[1]}/${m[2]}` };
-  // Audiomack album
   m = trimmed.match(/audiomack\.com\/album\/([^/]+)\/([^/?]+)/i);
   if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed-album/${m[1]}/${m[2]}` };
-  // Boomplay — no public embed exists, so we link out instead
   if (/boomplay\.com/i.test(trimmed)) {
     return { type: 'linkout', url: trimmed, label: '▶ Listen on Boomplay' };
   }
-  // Unknown — try as direct audio, but flag it
   return { type: 'unknown', url: trimmed };
 }
-
 function ComponentEditor({ comp, onChange }) {
   if (comp.type === 'header') return <HeaderEditor comp={comp} onChange={onChange} />;
   if (comp.type === 'text') return <TextEditor comp={comp} onChange={onChange} />;
