@@ -62,6 +62,50 @@ function getAudioEmbed(url) {
   return { type: 'unknown', url: trimmed };
 }
 
+function getImageUrl(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+
+  // Google Drive share link ("...file/d/FILE_ID/view") -> direct viewable link
+  let m = trimmed.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+
+  // Dropbox share link -> force raw/direct file instead of the preview page
+  if (/dropbox\.com/i.test(trimmed)) {
+    if (trimmed.includes('dl=0')) return trimmed.replace('dl=0', 'raw=1');
+    if (trimmed.includes('dl=1')) return trimmed.replace('dl=1', 'raw=1');
+    if (!trimmed.includes('raw=1')) return trimmed + (trimmed.includes('?') ? '&raw=1' : '?raw=1');
+  }
+
+  // Imgur page link (not already a direct i.imgur.com file) -> best-effort direct file guess
+  m = trimmed.match(/^https?:\/\/(?:www\.)?imgur\.com\/([a-zA-Z0-9]+)$/);
+  if (m) return `https://i.imgur.com/${m[1]}.jpg`;
+
+  // Assume it's already a direct file/CDN link
+  return trimmed;
+}
+
+function SafeImage({ src, alt, style }) {
+  const [failed, setFailed] = useState(false);
+  const resolved = getImageUrl(src);
+
+  if (!resolved || failed) {
+    return (
+      <div style={{
+        ...style,
+        background: 'rgba(148,163,184,0.12)',
+        border: '1px dashed rgba(148,163,184,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 12,
+      }}>
+        ⚠ Image couldn't load — make sure the link points directly to the image file
+      </div>
+    );
+  }
+
+  return <img src={resolved} alt={alt} style={style} onError={() => setFailed(true)} />;
+}
+
 export default function SiteView() {
   const { subdomain } = useParams();
   const [site, setSite] = useState(null);
@@ -175,7 +219,7 @@ function RenderComponent({ comp, theme }) {
   if (comp.type === 'image') return (
     <div>
       {comp.url ? (
-        <img src={comp.url} alt={comp.caption || ''} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 420 }} />
+        <SafeImage src={comp.url} alt={comp.caption || ''} style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 420, minHeight: 160 }} />
       ) : (
         <div style={{ width: '100%', height: 200, background: theme.bg2, border: `1px dashed ${theme.border}`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.text, fontSize: 14 }}>Image</div>
       )}
@@ -189,7 +233,7 @@ function RenderComponent({ comp, theme }) {
       {comp.images?.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {comp.images.map((url, i) => (
-            <img key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+            <SafeImage key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
           ))}
         </div>
       ) : (
