@@ -5,6 +5,63 @@ const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrend
 
 const CATEGORY_ICONS = { Music: '', Artwork: '', Food: '', Delivery: '', Clothing: '', News: '', Accommodation: '' };
 
+function getYouTubeEmbedUrl(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+  let videoId = null;
+
+  let m = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
+  if (m) videoId = m[1];
+
+  if (!videoId) {
+    m = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+    if (m) videoId = m[1];
+  }
+  if (!videoId) {
+    m = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
+    if (m) videoId = m[1];
+  }
+  if (!videoId) {
+    m = trimmed.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{6,})/);
+    if (m) videoId = m[1];
+  }
+
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+}
+
+function getAudioEmbed(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+
+  // Direct audio file
+  if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
+    return { type: 'direct', url: trimmed };
+  }
+  // SoundCloud
+  if (/soundcloud\.com/i.test(trimmed)) {
+    return {
+      type: 'soundcloud',
+      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(trimmed)}&color=%237c3aed&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false`,
+    };
+  }
+  // Spotify
+  if (/open\.spotify\.com\/(track|album|playlist|episode)\//i.test(trimmed)) {
+    return { type: 'spotify', embedUrl: trimmed.replace('open.spotify.com/', 'open.spotify.com/embed/') };
+  }
+  // Audiomack song
+  let m = trimmed.match(/audiomack\.com\/song\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed/song/${m[1]}/${m[2]}` };
+  // Audiomack album
+  m = trimmed.match(/audiomack\.com\/album\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed-album/${m[1]}/${m[2]}` };
+  // Boomplay — no public embed exists, link out instead
+  if (/boomplay\.com/i.test(trimmed)) {
+    return { type: 'linkout', url: trimmed, label: '▶ Listen on Boomplay' };
+  }
+  // Unknown — try as direct audio, but flag it
+  return { type: 'unknown', url: trimmed };
+}
+
 export default function SiteView() {
   const { subdomain } = useParams();
   const [site, setSite] = useState(null);
@@ -96,24 +153,24 @@ function RenderComponent({ comp, theme }) {
     </div>
   );
 
- if (comp.type === 'audio_player') {
-  const audio = getAudioEmbed(comp.url);
-  return (
-    <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: audio ? 14 : 0 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 8, background: `${theme.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💿</div>
-        <div style={{ fontWeight: 600, color: theme.textH }}>{comp.title}</div>
+  if (comp.type === 'audio_player') {
+    const audio = getAudioEmbed(comp.url);
+    return (
+      <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: audio ? 14 : 0 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 8, background: `${theme.accent}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💿</div>
+          <div style={{ fontWeight: 600, color: theme.textH }}>{comp.title}</div>
+        </div>
+        {audio?.type === 'direct' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
+        {audio?.type === 'soundcloud' && <iframe title={comp.title || 'SoundCloud player'} width="100%" height="120" scrolling="no" frameBorder="no" allow="autoplay" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+        {audio?.type === 'spotify' && <iframe title={comp.title || 'Spotify player'} width="100%" height="152" frameBorder="0" allow="encrypted-media" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+        {audio?.type === 'audiomack' && <iframe title={comp.title || 'Audiomack player'} width="100%" height="252" frameBorder="0" scrolling="no" allowFullScreen src={audio.embedUrl} style={{ borderRadius: 8 }} />}
+        {audio?.type === 'linkout' && <a href={audio.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '10px 20px', background: theme.accent, color: '#fff', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>{audio.label}</a>}
+        {audio?.type === 'unknown' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
+        {!audio && <div style={{ fontSize: 13, color: theme.text, background: `${theme.accent}15`, padding: '4px 10px', borderRadius: 4, display: 'inline-block' }}>Music Track</div>}
       </div>
-      {audio?.type === 'direct' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
-      {audio?.type === 'soundcloud' && <iframe title={comp.title || 'SoundCloud player'} width="100%" height="120" scrolling="no" frameBorder="no" allow="autoplay" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
-      {audio?.type === 'spotify' && <iframe title={comp.title || 'Spotify player'} width="100%" height="152" frameBorder="0" allow="encrypted-media" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
-      {audio?.type === 'audiomack' && <iframe title={comp.title || 'Audiomack player'} width="100%" height="252" frameBorder="0" scrolling="no" allowFullScreen src={audio.embedUrl} style={{ borderRadius: 8 }} />}
-      {audio?.type === 'linkout' && <a href={audio.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '10px 20px', background: theme.accent, color: '#fff', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>{audio.label}</a>}
-      {audio?.type === 'unknown' && <audio controls style={{ width: '100%' }} src={audio.url}><track kind="captions" /></audio>}
-      {!audio && <div style={{ fontSize: 13, color: theme.text, background: `${theme.accent}15`, padding: '4px 10px', borderRadius: 4, display: 'inline-block' }}>Music Track</div>}
-    </div>
-  );
-}
+    );
+  }
 
   if (comp.type === 'image') return (
     <div>
@@ -183,22 +240,23 @@ function RenderComponent({ comp, theme }) {
     </div>
   );
 
- if (comp.type === 'video') {
-  const embedUrl = getYouTubeEmbedUrl(comp.url);
-  return (
-    <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.textH, marginBottom: 12 }}>{comp.title || 'Video'}</h2>
-      {embedUrl ? (
-        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 12 }}>
-          <iframe src={embedUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', borderRadius: 12 }} title={comp.title || 'Video'} allowFullScreen />
-        </div>
-      ) : comp.url ? (
-        <div style={{ padding: 24, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>⚠ Couldn't recognize this as a YouTube link</div>
-      ) : (
-        <div style={{ padding: 60, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>🎬 Video section</div>
-      )}
-    </div>
-  );
-}
+  if (comp.type === 'video') {
+    const embedUrl = getYouTubeEmbedUrl(comp.url);
+    return (
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.textH, marginBottom: 12 }}>{comp.title || 'Video'}</h2>
+        {embedUrl ? (
+          <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 12 }}>
+            <iframe src={embedUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', borderRadius: 12 }} title={comp.title || 'Video'} allowFullScreen />
+          </div>
+        ) : comp.url ? (
+          <div style={{ padding: 24, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>⚠ Couldn't recognize this as a YouTube link</div>
+        ) : (
+          <div style={{ padding: 60, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>🎬 Video section</div>
+        )}
+      </div>
+    );
+  }
+
   return null;
 }
