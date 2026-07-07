@@ -18,12 +18,12 @@ import cloudinary
 import cloudinary.uploader
 import threading
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 def configure_cloudinary():
-    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-    api_key = os.getenv('CLOUDINARY_API_KEY')
-    api_secret = os.getenv('CLOUDINARY_API_SECRET')
+    cloud_name = (os.getenv('CLOUDINARY_CLOUD_NAME') or '').strip()
+    api_key = (os.getenv('CLOUDINARY_API_KEY') or '').strip()
+    api_secret = (os.getenv('CLOUDINARY_API_SECRET') or '').strip()
     if cloud_name and api_key and api_secret:
         cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
         return None
@@ -36,12 +36,8 @@ def configure_cloudinary():
     ]
     return missing
 
-CLOUDINARY_MISSING = configure_cloudinary()
-if CLOUDINARY_MISSING:
-    print(f'Warning: Cloudinary not configured. Missing env vars: {", ".join(CLOUDINARY_MISSING)}')
-
 def cloudinary_config_error():
-    missing = CLOUDINARY_MISSING or configure_cloudinary()
+    missing = configure_cloudinary()
     if missing:
         return jsonify({
             'status': 'error',
@@ -366,6 +362,25 @@ def upload_profile_picture():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
 
+@app.route('/api/auth/profile-picture', methods=['PUT'])
+@login_required
+def set_profile_picture():
+    """Save profile picture URL after a direct Cloudinary upload from the browser"""
+    data = request.get_json() or {}
+    url = (data.get('url') or '').strip()
+    if not url:
+        return jsonify({'status': 'error', 'message': 'URL required'}), 400
+
+    conn = get_db()
+    conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?', (url, session['user_id']))
+    conn.commit()
+    user = row_to_dict(conn.execute(
+        'SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?',
+        (session['user_id'],)
+    ).fetchone())
+    conn.close()
+    return jsonify({'status': 'success', 'user': user, 'profile_picture_url': url})
+
 @app.errorhandler(RequestEntityTooLarge)
 def handle_large_file(e):
     return jsonify({'status': 'error', 'message': 'File too large (max 50MB)'}), 413
@@ -513,7 +528,12 @@ def check_subdomain(subdomain):
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for deployment services"""
-    return jsonify({'status': 'ok'}), 200
+    missing = configure_cloudinary()
+    return jsonify({
+        'status': 'ok',
+        'uploads': 'ready' if not missing else 'cloudinary_env_missing',
+        'cloudinary_missing': missing or [],
+    }), 200
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))

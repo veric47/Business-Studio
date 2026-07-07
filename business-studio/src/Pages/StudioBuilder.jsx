@@ -1,21 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { uploadFile } from '../utils/cloudinaryUpload';
 
 const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
-
-async function uploadFile(file, type) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('type', type);
-  const res = await fetch(`${API}/api/upload`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  });
-  const data = await res.json();
-  if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Upload failed');
-  return data.url;
-}
 
 function getAudioEmbed(url) {
   if (!url || !url.trim()) return null;
@@ -228,7 +215,7 @@ function AudioEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'audio');
+      const url = await uploadFile(file, 'audio', API);
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');
@@ -293,7 +280,7 @@ function ImageEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'image');
+      const url = await uploadFile(file, 'image', API);
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');
@@ -335,7 +322,7 @@ function GalleryEditor({ comp, onChange }) {
     const uploaded = [];
     try {
       for (const file of files) {
-        const url = await uploadFile(file, 'image');
+        const url = await uploadFile(file, 'image', API);
         uploaded.push(url);
       }
       onChange({ ...comp, images: [...images, ...uploaded] });
@@ -457,7 +444,7 @@ function VideoEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'video');
+      const url = await uploadFile(file, 'video', API);
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');

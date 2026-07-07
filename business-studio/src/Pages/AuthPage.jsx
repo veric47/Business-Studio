@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import logo from '../assets/Business Studio.jpeg';
 
 const API =
@@ -107,16 +108,14 @@ export default function AuthPage({ mode = 'login', onLogin }) {
 
       // Upload profile picture if provided and it's signup
       if (isSignup && profilePicture) {
-        const formData = new FormData();
-        formData.append('file', profilePicture);
-
         try {
-          const uploadRes = await fetch(API + '/api/auth/upload-profile-picture', {
-            method: 'POST',
+          const pictureUrl = await uploadToCloudinary(profilePicture, 'image');
+          const uploadRes = await fetch(API + '/api/auth/profile-picture', {
+            method: 'PUT',
             credentials: 'include',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: pictureUrl }),
           });
-
           const uploadData = await uploadRes.json();
           if (uploadRes.ok) {
             data.user = uploadData.user;
