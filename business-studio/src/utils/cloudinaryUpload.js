@@ -1,16 +1,13 @@
-const CLOUDINARY_CLOUD = (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
-const UPLOAD_PRESET = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'business_studio').trim();
+const UPLOAD_PRESET = (
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'business_studio'
+).trim();
 
-function assertCloudinaryConfig() {
-  if (!CLOUDINARY_CLOUD) {
-    throw new Error(
-      'Cloudinary cloud name is not set. In Cloudinary go to Dashboard → Product environment credentials, copy "Cloud name", then set VITE_CLOUDINARY_CLOUD_NAME in your .env (local) or Vercel Environment Variables (production).'
-    );
-  }
+function getCloudinaryCloud() {
+  return (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'wgzmvzyy').trim();
 }
 
 export async function uploadToCloudinary(file, type = 'image') {
-  assertCloudinaryConfig();
+  const cloudName = getCloudinaryCloud();
 
   const resourceType = type === 'image' ? 'image' : 'video';
   const formData = new FormData();
@@ -19,7 +16,7 @@ export async function uploadToCloudinary(file, type = 'image') {
   formData.append('folder', `business-studio/${type}`);
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
     { method: 'POST', body: formData }
   );
 
@@ -28,7 +25,7 @@ export async function uploadToCloudinary(file, type = 'image') {
     const msg = data.error?.message || 'Upload failed';
     if (/cloud_name/i.test(msg)) {
       throw new Error(
-        `Invalid Cloudinary cloud name "${CLOUDINARY_CLOUD}". Copy the exact "Cloud name" from Cloudinary Dashboard → Product environment credentials (often looks like "dxxxxxx", not "BusinessStudio"). Update VITE_CLOUDINARY_CLOUD_NAME and redeploy.`
+        `Invalid Cloudinary cloud name "${cloudName}". Your cloud name should be "wgzmvzyy" — check Cloudinary Dashboard → Product environment credentials.`
       );
     }
     if (/preset/i.test(msg)) {
