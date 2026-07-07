@@ -10,8 +10,8 @@ export default function Navbar({ user, onLogout }) {
   const isActive = (path) => location.pathname === path;
 
   const handleLogout = async () => {
-    await fetch((import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com') + '/api/auth/logout', { method: 'POST', credentials: 'include' });
-    onLogout();
+    // onLogout (from App.jsx) clears the stored token and calls the logout endpoint
+    await onLogout();
     navigate('/');
   };
 
@@ -23,9 +23,9 @@ export default function Navbar({ user, onLogout }) {
     }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
 
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-          <img src={logo} alt="Business Studio Logo" style={{ width: 90, height: 90, objectFit: 'contain', borderRadius: 8 }} />
-          <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-h)' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <img src={logo} alt="Business Studio Logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 8 }} />
+          <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-h)' }}>
             Business<span style={{ color: 'var(--accent)' }}>Studio</span>
           </span>
         </Link>
@@ -36,7 +36,7 @@ export default function Navbar({ user, onLogout }) {
           {!user ? (
             <>
               <Link to="/login" className="btn btn-ghost" style={{ fontSize: 14 }}>Log in</Link>
-              <Link to="/signup" className="btn btn-primary gradient btn-sm">Get Started</Link>
+              <Link to="/signup" className="btn btn-primary btn-sm">Get Started</Link>
             </>
           ) : (
             <>

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
-import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import logo from '../assets/Business Studio.jpeg';
 
 const API =
@@ -47,11 +46,10 @@ export default function AuthPage({ mode = 'login', onLogin }) {
   const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const res = await fetch(API + '/api/auth/google', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -66,6 +64,7 @@ export default function AuthPage({ mode = 'login', onLogin }) {
         return;
       }
 
+      localStorage.setItem('bs_token', data.token);
       onLogin(data.user);
       navigate('/dashboard');
     } catch (err) {
@@ -91,7 +90,6 @@ export default function AuthPage({ mode = 'login', onLogin }) {
 
       const res = await fetch(API + endpoint, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -106,16 +104,20 @@ export default function AuthPage({ mode = 'login', onLogin }) {
         return;
       }
 
+      localStorage.setItem('bs_token', data.token);
+
       // Upload profile picture if provided and it's signup
       if (isSignup && profilePicture) {
+        const formData = new FormData();
+        formData.append('file', profilePicture);
+
         try {
-          const pictureUrl = await uploadToCloudinary(profilePicture, 'image');
-          const uploadRes = await fetch(API + '/api/auth/profile-picture', {
-            method: 'PUT',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: pictureUrl }),
+          const uploadRes = await fetch(API + '/api/auth/upload-profile-picture', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${data.token}` },
+            body: formData,
           });
+
           const uploadData = await uploadRes.json();
           if (uploadRes.ok) {
             data.user = uploadData.user;

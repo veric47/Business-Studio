@@ -118,7 +118,7 @@ export default function SiteView() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${API}/api/gallery/${subdomain}`)
+    fetch(`${API}/api/gallery/${subdomain}`, { credentials: 'include' })
       .then(r => r.json())
       .then(d => {
         if (d.status === 'success') setSite(d.site);

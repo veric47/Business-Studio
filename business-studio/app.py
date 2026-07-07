@@ -17,33 +17,16 @@ from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import threading
+import jwt
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv()
 
-def configure_cloudinary():
-    cloud_name = (os.getenv('CLOUDINARY_CLOUD_NAME') or 'wgzmvzyy').strip()
-    api_key = (os.getenv('CLOUDINARY_API_KEY') or '').strip()
-    api_secret = (os.getenv('CLOUDINARY_API_SECRET') or '').strip()
-    if cloud_name and api_key and api_secret:
-        cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
-        return None
-    missing = [
-        name for name, value in (
-            ('CLOUDINARY_CLOUD_NAME', cloud_name),
-            ('CLOUDINARY_API_KEY', api_key),
-            ('CLOUDINARY_API_SECRET', api_secret),
-        ) if not value
-    ]
-    return missing
-
-def cloudinary_config_error():
-    missing = configure_cloudinary()
-    if missing:
-        return jsonify({
-            'status': 'error',
-            'message': f'File uploads are not configured on the server. Missing: {", ".join(missing)}',
-        }), 503
-    return None
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -61,6 +44,53 @@ ALLOWED_MEDIA_EXTENSIONS = {
     'audio': {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'},
     'video': {'mp4', 'webm', 'mov', 'ogg'},
 }
+
+# --- JWT auth (token-based, so login survives refresh even across the
+# Vercel <-> Render cross-domain split, unlike cookie sessions) ---
+JWT_SECRET = os.getenv('JWT_SECRET', app.secret_key)
+JWT_ALGO = 'HS256'
+JWT_EXPIRY_DAYS = 30
+
+def generate_token(user_id):
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
+        'iat': datetime.utcnow(),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+def get_current_user_id():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header[7:].strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload.get('user_id')
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+# --- Anonymous view-count dedupe (cookie-based, separate from login) ---
+VIEW_COOKIE_NAME = 'bs_viewed'
+VIEW_COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
+
+def has_already_viewed(site_id, request):
+    raw = request.cookies.get(VIEW_COOKIE_NAME, '')
+    viewed_ids = set(raw.split(',')) if raw else set()
+    return str(site_id) in viewed_ids
+
+def mark_as_viewed(site_id, request, response):
+    raw = request.cookies.get(VIEW_COOKIE_NAME, '')
+    viewed_ids = set(raw.split(',')) if raw else set()
+    viewed_ids.add(str(site_id))
+    # Cap list length defensively so the cookie never grows unbounded
+    trimmed = list(viewed_ids)[-500:]
+    response.set_cookie(
+        VIEW_COOKIE_NAME, ','.join(trimmed),
+        max_age=VIEW_COOKIE_MAX_AGE, secure=True, httponly=True, samesite='None'
+    )
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
     "https://business-studio-7tqf.onrender.com",
@@ -194,8 +224,10 @@ init_db()
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if 'user_id' not in session:
+        user_id = get_current_user_id()
+        if not user_id:
             return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
+        request.user_id = user_id
         return f(*args, **kwargs)
     return decorated
 
@@ -220,13 +252,12 @@ def register():
         conn.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', (name, email, hashed))
         conn.commit()
         user = row_to_dict(conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone())
-        session.permanent = True
-        session['user_id'] = user['id']
 
         # Send welcome email in the background so the request doesn't block on SMTP
         threading.Thread(target=send_welcome_email, args=(email, name), daemon=True).start()
 
-        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}}), 201
+        token = generate_token(user['id'])
+        return jsonify({'status': 'success', 'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}}), 201
     except sqlite3.IntegrityError:
         return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
     finally:
@@ -242,17 +273,17 @@ def login():
     conn.close()
     if not user or not check_password_hash(user['password'], password):
         return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
-    session.permanent = True
-    session['user_id'] = user['id']
 
     # Send login alert email in the background so the request doesn't block on SMTP
     threading.Thread(target=send_login_alert_email, args=(user['email'], user['name']), daemon=True).start()
 
-    return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
+    token = generate_token(user['id'])
+    return jsonify({'status': 'success', 'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
-    session.clear()
+    # JWTs are stateless - actual logout happens client-side by discarding the token.
+    # This endpoint exists so the frontend has something symmetrical to call.
     return jsonify({'status': 'success'})
 
 @app.route('/api/auth/google', methods=['POST'])
@@ -292,17 +323,14 @@ def google_login():
 
         conn.close()
 
-        # Set session
-        session.permanent = True
-        session['user_id'] = user['id']
-
         # Send appropriate email in the background so the request doesn't block on SMTP
         if is_new_user:
             threading.Thread(target=send_welcome_email, args=(user['email'], user['name']), daemon=True).start()
         else:
             threading.Thread(target=send_login_alert_email, args=(user['email'], user['name']), daemon=True).start()
 
-        return jsonify({'status': 'success', 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
+        token = generate_token(user['id'])
+        return jsonify({'status': 'success', 'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'plan': user['plan'], 'profile_picture_url': user.get('profile_picture_url')}})
 
     except Exception as e:
         print(f"Google token verification failed: {e}")
@@ -310,13 +338,13 @@ def google_login():
 
 @app.route('/api/auth/me', methods=['GET'])
 def me():
-    if 'user_id' not in session:
+    user_id = get_current_user_id()
+    if not user_id:
         return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
     conn = get_db()
-    user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?', (session['user_id'],)).fetchone())
+    user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?', (user_id,)).fetchone())
     conn.close()
     if not user:
-        session.clear()
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     return jsonify({'status': 'success', 'user': user})
 
@@ -332,10 +360,6 @@ def upload_profile_picture():
     if file.filename == '':
         return jsonify({'status': 'error', 'message': 'No file selected'}), 400
 
-    config_error = cloudinary_config_error()
-    if config_error:
-        return config_error
-
     try:
         # Upload to Cloudinary
         result = cloudinary.uploader.upload(
@@ -350,36 +374,17 @@ def upload_profile_picture():
         # Update user profile picture in database
         conn = get_db()
         conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?',
-                    (profile_picture_url, session['user_id']))
+                    (profile_picture_url, request.user_id))
         conn.commit()
 
         user = row_to_dict(conn.execute('SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?',
-                                        (session['user_id'],)).fetchone())
+                                        (request.user_id,)).fetchone())
         conn.close()
 
         return jsonify({'status': 'success', 'user': user, 'profile_picture_url': profile_picture_url})
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
-
-@app.route('/api/auth/profile-picture', methods=['PUT'])
-@login_required
-def set_profile_picture():
-    """Save profile picture URL after a direct Cloudinary upload from the browser"""
-    data = request.get_json() or {}
-    url = (data.get('url') or '').strip()
-    if not url:
-        return jsonify({'status': 'error', 'message': 'URL required'}), 400
-
-    conn = get_db()
-    conn.execute('UPDATE users SET profile_picture_url = ? WHERE id = ?', (url, session['user_id']))
-    conn.commit()
-    user = row_to_dict(conn.execute(
-        'SELECT id, name, email, plan, profile_picture_url, created_at FROM users WHERE id = ?',
-        (session['user_id'],)
-    ).fetchone())
-    conn.close()
-    return jsonify({'status': 'success', 'user': user, 'profile_picture_url': url})
 
 @app.errorhandler(RequestEntityTooLarge)
 def handle_large_file(e):
@@ -409,10 +414,6 @@ def upload_media():
     # Cloudinary stores both audio and video under resource_type "video"
     resource_type = 'image' if media_type == 'image' else 'video'
 
-    config_error = cloudinary_config_error()
-    if config_error:
-        return config_error
-
     try:
         upload_kwargs = {'folder': f'business-studio/{media_type}', 'resource_type': resource_type}
         if resource_type == 'image':
@@ -427,7 +428,7 @@ def upload_media():
 @login_required
 def get_my_sites():
     conn = get_db()
-    sites = [row_to_dict(r) for r in conn.execute('SELECT * FROM sites WHERE user_id = ? ORDER BY updated_at DESC', (session['user_id'],)).fetchall()]
+    sites = [row_to_dict(r) for r in conn.execute('SELECT * FROM sites WHERE user_id = ? ORDER BY updated_at DESC', (request.user_id,)).fetchall()]
     conn.close()
     for s in sites:
         s['components'] = json.loads(s['components'])
@@ -449,7 +450,7 @@ def create_site():
     try:
         cur = conn.execute(
             'INSERT INTO sites (user_id, business_name, subdomain, category, layout_style, components, theme) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            (session['user_id'], business_name, subdomain, category, layout_style, components, theme)
+            (request.user_id, business_name, subdomain, category, layout_style, components, theme)
         )
         conn.commit()
         site = row_to_dict(conn.execute('SELECT * FROM sites WHERE id = ?', (cur.lastrowid,)).fetchone())
@@ -464,7 +465,7 @@ def create_site():
 @login_required
 def update_site(site_id):
     conn = get_db()
-    site = row_to_dict(conn.execute('SELECT * FROM sites WHERE id = ? AND user_id = ?', (site_id, session['user_id'])).fetchone())
+    site = row_to_dict(conn.execute('SELECT * FROM sites WHERE id = ? AND user_id = ?', (site_id, request.user_id)).fetchone())
     if not site:
         conn.close()
         return jsonify({'status': 'error', 'message': 'Site not found'}), 404
@@ -488,7 +489,7 @@ def update_site(site_id):
 @login_required
 def delete_site(site_id):
     conn = get_db()
-    conn.execute('DELETE FROM sites WHERE id = ? AND user_id = ?', (site_id, session['user_id']))
+    conn.execute('DELETE FROM sites WHERE id = ? AND user_id = ?', (site_id, request.user_id))
     conn.commit()
     conn.close()
     return jsonify({'status': 'success'})
@@ -512,11 +513,19 @@ def get_site_by_subdomain(subdomain):
     if not site:
         conn.close()
         return jsonify({'status': 'error', 'message': 'Site not found'}), 404
-    conn.execute('UPDATE sites SET views = views + 1 WHERE id = ?', (site['id'],))
-    conn.commit()
+
+    already_viewed = has_already_viewed(site['id'], request)
+    if not already_viewed:
+        conn.execute('UPDATE sites SET views = views + 1 WHERE id = ?', (site['id'],))
+        conn.commit()
+        site = row_to_dict(conn.execute('SELECT * FROM sites WHERE id = ?', (site['id'],)).fetchone())
     conn.close()
     site['components'] = json.loads(site['components'])
-    return jsonify({'status': 'success', 'site': site})
+
+    response = jsonify({'status': 'success', 'site': site})
+    if not already_viewed:
+        mark_as_viewed(site['id'], request, response)
+    return response
 
 @app.route('/api/check-subdomain/<subdomain>', methods=['GET'])
 def check_subdomain(subdomain):
@@ -528,12 +537,7 @@ def check_subdomain(subdomain):
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for deployment services"""
-    missing = configure_cloudinary()
-    return jsonify({
-        'status': 'ok',
-        'uploads': 'ready' if not missing else 'cloudinary_env_missing',
-        'cloudinary_missing': missing or [],
-    }), 200
+    return jsonify({'status': 'ok'}), 200
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))

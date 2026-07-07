@@ -39,9 +39,15 @@ export default function App() {
 
   useEffect(() => {
     async function checkLogin() {
+      const token = localStorage.getItem('bs_token');
+      if (!token) {
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API}/api/auth/me`, {
-          credentials: "include",
+          headers: { 'Authorization': `Bearer ${token}` },
         });
 
         const data = await res.json();
@@ -49,6 +55,8 @@ export default function App() {
         if (res.ok && data.status === "success") {
           setUser(data.user);
         } else {
+          // Token is invalid or expired - clear it so we don't keep retrying
+          localStorage.removeItem('bs_token');
           setUser(null);
         }
       } catch (err) {
@@ -64,14 +72,16 @@ export default function App() {
 
   async function handleLogout() {
     try {
+      const token = localStorage.getItem('bs_token');
       await fetch(`${API}/api/auth/logout`, {
         method: "POST",
-        credentials: "include",
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
     } catch (err) {
       console.error(err);
     }
 
+    localStorage.removeItem('bs_token');
     setUser(null);
   }
 

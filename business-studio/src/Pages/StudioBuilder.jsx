@@ -1,8 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { uploadFile } from '../utils/cloudinaryUpload';
 
 const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
+
+const authHeaders = (extra = {}) => {
+  const token = localStorage.getItem('bs_token');
+  return token ? { 'Authorization': `Bearer ${token}`, ...extra } : { ...extra };
+};
+
+async function uploadFile(file, type) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', type);
+  const res = await fetch(`${API}/api/upload`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Upload failed');
+  return data.url;
+}
 
 function getAudioEmbed(url) {
   if (!url || !url.trim()) return null;
@@ -537,7 +555,7 @@ export default function StudioBuilder({ user }) {
   // Load existing site
   useEffect(() => {
     if (!isNew && id) {
-      fetch(`${API}/api/sites`, { credentials: 'include' })
+      fetch(`${API}/api/sites`, { headers: authHeaders() })
         .then(r => r.json())
         .then(d => {
           if (d.status === 'success') {
@@ -622,11 +640,11 @@ export default function StudioBuilder({ user }) {
     try {
       let res, data;
       if (isNew || !siteId) {
-        res = await fetch(`${API}/api/sites`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await fetch(`${API}/api/sites`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
         data = await res.json();
         if (res.ok) { setSiteId(data.site.id); navigate(`/studio/${data.site.id}`, { replace: true }); }
       } else {
-        res = await fetch(`${API}/api/sites/${siteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await fetch(`${API}/api/sites/${siteId}`, { method: 'PUT', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
         data = await res.json();
       }
       if (res.ok) { setSaveMsg('✓ Saved'); setTimeout(() => setSaveMsg(''), 2500); }

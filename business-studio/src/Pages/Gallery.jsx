@@ -9,6 +9,51 @@ const CATEGORY_COLORS = {
 };
 const ALL_CATEGORIES = ['All', 'Music', 'Artwork', 'Food', 'Delivery', 'Clothing', 'News', 'Accommodation'];
 
+// Live thumbnail: renders the actual published site in an iframe, scaled down.
+// Only mounts the iframe once the card is hovered, so we're not loading dozens
+// of full pages at once for a gallery grid.
+function SitePreviewThumb({ subdomain, color }) {
+  const [hovered, setHovered] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Scale factor: the real site renders at this "virtual" width, then we
+  // shrink it down with a CSS transform to fit the small card banner.
+  const VIRTUAL_WIDTH = 1280;
+  const VIRTUAL_HEIGHT = 860;
+  const SCALE = 300 / VIRTUAL_WIDTH; // card banner is ~300px wide
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ height: 160, position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--border)', background: `linear-gradient(135deg, ${color}25, ${color}10)` }}
+    >
+      {/* Fallback label, always present underneath */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: hovered && loaded ? 0 : 1, transition: 'opacity 0.15s' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color }}>Hover to preview</span>
+      </div>
+
+      {hovered && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0,
+          width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT,
+          transform: `scale(${SCALE})`, transformOrigin: 'top left',
+          pointerEvents: 'none',
+          opacity: loaded ? 1 : 0, transition: 'opacity 0.2s',
+        }}>
+          <iframe
+            title={`Preview of ${subdomain}`}
+            src={`/site/${subdomain}`}
+            style={{ width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT, border: 'none' }}
+            onLoad={() => setLoaded(true)}
+            scrolling="no"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Gallery() {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +80,7 @@ export default function Gallery() {
         <div className="section-label">Community</div>
         <h1 style={{ fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 800, marginBottom: 12 }}>Published Sites Gallery</h1>
         <p style={{ color: 'var(--text-m)', fontSize: 16, maxWidth: 500, margin: '0 auto 28px' }}>
-          Browse websites built by our community. Get inspired and build your own.
+          Browse websites built by our community. Hover a card for a live preview, or click to open the full site.
         </p>
         <input
           type="text"
@@ -85,10 +130,8 @@ export default function Gallery() {
                 <div className="card" style={{ padding: 0, overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer' }}
                   onMouseOver={e => { e.currentTarget.style.borderColor = color + '60'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${color}20`; }}
                   onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
-                  {/* Preview banner */}
-                  <div style={{ height: 100, background: `linear-gradient(135deg, ${color}25, ${color}10)`, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: color }}>{site.category}</span>
-                  </div>
+                  {/* Live preview banner */}
+                  <SitePreviewThumb subdomain={site.subdomain} color={color} />
                   <div style={{ padding: '16px 18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                       <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-h)' }}>{site.business_name}</h3>
@@ -112,7 +155,7 @@ export default function Gallery() {
         <div style={{ textAlign: 'center', marginTop: 60, padding: '40px 24px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 10 }}>Want to be featured here?</h2>
           <p style={{ color: 'var(--text-m)', marginBottom: 24 }}>Create your business website and publish it to the gallery.</p>
-          <Link to="/signup" className="btn btn-primary gradient btn-lg">Start Building →</Link>
+          <Link to="/signup" className="btn btn-primary btn-lg">Start Building →</Link>
         </div>
       )}
     </div>
