@@ -21,7 +21,7 @@ import threading
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 def configure_cloudinary():
-    cloud_name = (os.getenv('CLOUDINARY_CLOUD_NAME') or '').strip()
+    cloud_name = (os.getenv('CLOUDINARY_CLOUD_NAME') or 'wgzmvzyy').strip()
     api_key = (os.getenv('CLOUDINARY_API_KEY') or '').strip()
     api_secret = (os.getenv('CLOUDINARY_API_SECRET') or '').strip()
     if cloud_name and api_key and api_secret:

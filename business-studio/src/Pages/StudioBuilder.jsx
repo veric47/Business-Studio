@@ -215,7 +215,7 @@ function AudioEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'audio', API);
+      const url = await uploadFile(file, 'audio');
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');
@@ -280,7 +280,7 @@ function ImageEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'image', API);
+      const url = await uploadFile(file, 'image');
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');
@@ -322,7 +322,7 @@ function GalleryEditor({ comp, onChange }) {
     const uploaded = [];
     try {
       for (const file of files) {
-        const url = await uploadFile(file, 'image', API);
+        const url = await uploadFile(file, 'image');
         uploaded.push(url);
       }
       onChange({ ...comp, images: [...images, ...uploaded] });
@@ -444,7 +444,7 @@ function VideoEditor({ comp, onChange }) {
   const handleFile = async (file) => {
     setUploading(true); setError('');
     try {
-      const url = await uploadFile(file, 'video', API);
+      const url = await uploadFile(file, 'video');
       onChange({ ...comp, url });
     } catch (err) {
       setError(err.message || 'Upload failed');
