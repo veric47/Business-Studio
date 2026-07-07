@@ -1,5 +1,5 @@
 const CLOUDINARY_CLOUD =
-  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'BussinesStudio';
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'BusinessStudio';
 const UPLOAD_PRESET =
   import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'business_studio';
 
