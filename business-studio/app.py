@@ -7,6 +7,7 @@ import json
 from functools import wraps
 from datetime import datetime, timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import RequestEntityTooLarge
 from google.auth.transport import requests
 from google.oauth2 import id_token
 import smtplib
@@ -35,6 +36,13 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="None",
     SESSION_COOKIE_HTTPONLY=True,
 )
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
+
+ALLOWED_MEDIA_EXTENSIONS = {
+    'image': {'jpg', 'jpeg', 'png', 'gif', 'webp'},
+    'audio': {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'},
+    'video': {'mp4', 'webm', 'mov', 'ogg'},
+}
 ALLOWED_ORIGINS = [
     "https://business-studio-green.vercel.app",
     "https://business-studio-7tqf.onrender.com",
@@ -332,6 +340,43 @@ def upload_profile_picture():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
 
+@app.errorhandler(RequestEntityTooLarge)
+def handle_large_file(e):
+    return jsonify({'status': 'error', 'message': 'File too large (max 50MB)'}), 413
+
+@app.route('/api/upload', methods=['POST'])
+@login_required
+def upload_media():
+    """Generic upload endpoint for image, audio, or video files used in site components"""
+    if 'file' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+    file = request.files['file']
+    media_type = request.form.get('type', 'image')
+
+    if media_type not in ALLOWED_MEDIA_EXTENSIONS:
+        return jsonify({'status': 'error', 'message': 'Invalid media type'}), 400
+
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_MEDIA_EXTENSIONS[media_type]:
+        allowed = ', '.join(sorted(ALLOWED_MEDIA_EXTENSIONS[media_type]))
+        return jsonify({'status': 'error', 'message': f'Unsupported {media_type} file type ".{ext}". Allowed: {allowed}'}), 400
+
+    # Cloudinary stores both audio and video under resource_type "video"
+    resource_type = 'image' if media_type == 'image' else 'video'
+
+    try:
+        upload_kwargs = {'folder': f'business-studio/{media_type}', 'resource_type': resource_type}
+        if resource_type == 'image':
+            upload_kwargs['quality'] = 'auto'
+        result = cloudinary.uploader.upload(file, **upload_kwargs)
+        return jsonify({'status': 'success', 'url': result['secure_url'], 'type': media_type})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Upload failed: {str(e)}'}), 500
+
 # SITES ROUTES
 @app.route('/api/sites', methods=['GET'])
 @login_required
@@ -445,28 +490,3 @@ if __name__ == '__main__':
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
     print(f'BusinessStudio Flask backend running on port {port}.')
     app.run(debug=debug, host='0.0.0.0', port=port)
-
-ADMIN_SECRET = os.getenv('ADMIN_SECRET', 'change-this-to-something-only-you-know')
-
-@app.route('/api/admin/sites/<int:site_id>', methods=['DELETE'])
-def admin_delete_site(site_id):
-    provided_secret = request.headers.get('X-Admin-Secret')
-    if provided_secret != ADMIN_SECRET:
-        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
-    conn = get_db()
-    conn.execute('DELETE FROM sites WHERE id = ?', (site_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/admin/sites', methods=['GET'])
-def admin_list_sites():
-    provided_secret = request.headers.get('X-Admin-Secret')
-    if provided_secret != ADMIN_SECRET:
-        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
-    conn = get_db()
-    sites = [row_to_dict(r) for r in conn.execute(
-        'SELECT s.id, s.business_name, s.subdomain, s.category, u.email as owner_email FROM sites s JOIN users u ON s.user_id = u.id ORDER BY s.id'
-    ).fetchall()]
-    conn.close()
-    return jsonify({'status': 'success', 'sites': sites})

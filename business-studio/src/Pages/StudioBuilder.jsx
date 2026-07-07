@@ -3,6 +3,51 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || 'https://business-studio-7tqf.onrender.com';
 
+async function uploadFile(file, type) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', type);
+  const res = await fetch(`${API}/api/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Upload failed');
+  return data.url;
+}
+
+function getAudioEmbed(url) {
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+
+  if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
+    return { type: 'direct', url: trimmed };
+  }
+  if (/soundcloud\.com/i.test(trimmed)) {
+    return {
+      type: 'soundcloud',
+      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(trimmed)}&color=%237c3aed&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false`,
+    };
+  }
+  if (/open\.spotify\.com\/(track|album|playlist|episode)\//i.test(trimmed)) {
+    return { type: 'spotify', embedUrl: trimmed.replace('open.spotify.com/', 'open.spotify.com/embed/') };
+  }
+  let m = trimmed.match(/audiomack\.com\/song\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed/song/${m[1]}/${m[2]}` };
+  m = trimmed.match(/audiomack\.com\/album\/([^/]+)\/([^/?]+)/i);
+  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed-album/${m[1]}/${m[2]}` };
+  if (/boomplay\.com/i.test(trimmed)) {
+    return { type: 'linkout', url: trimmed, label: '▶ Listen on Boomplay' };
+  }
+  return { type: 'unknown', url: trimmed };
+}
+
+function isDirectVideoUrl(url) {
+  if (!url) return false;
+  return /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url) || url.includes('/video/upload/');
+}
+
 const CATEGORIES = [
   { id: 'Music', label: 'Music & Beats', desc: 'MP3 player, playlists, track listings' },
   { id: 'Artwork', label: 'Artwork & Literature', desc: 'Image galleries, portfolio, books' },
@@ -29,7 +74,7 @@ const COMPONENT_TYPES_BY_CATEGORY = {
     { type: 'audio_player', label: 'Music Track', desc: 'Add a playable music track' },
     { type: 'text', label: 'Text Block', desc: 'Paragraph of text' },
     { type: 'image', label: 'Image', desc: 'Album art or photo' },
-    { type: 'video', label: 'Music Video', desc: 'YouTube / video embed' },
+    { type: 'video', label: 'Music Video', desc: 'Upload a video or paste a YouTube link' },
     { type: 'checkout_button', label: 'Buy / Tip Button', desc: 'Accept payments' },
     { type: 'contact', label: 'Booking Contact', desc: 'Phone, email, address' },
   ],
@@ -126,6 +171,30 @@ function makeDefaultComponents(category, businessName) {
   return defaults[category] || [header];
 }
 
+// --- Reusable upload dropzone ---
+function UploadDropzone({ accept, uploading, onFile, label, hint }) {
+  const handleChange = (e) => {
+    const file = e.target.files[0];
+    if (file) onFile(file);
+    e.target.value = '';
+  };
+  return (
+    <div className="form-group">
+      <label style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        padding: 20, border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
+        background: 'var(--bg2)', cursor: uploading ? 'wait' : 'pointer', transition: 'all 0.2s',
+      }}>
+        <input type="file" accept={accept} onChange={handleChange} disabled={uploading} style={{ display: 'none' }} />
+        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-m)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {uploading ? (<><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Uploading...</>) : label}
+        </span>
+      </label>
+      {hint && <span className="form-hint">{hint}</span>}
+    </div>
+  );
+}
+
 // --- Sub-editors ---
 function HeaderEditor({ comp, onChange }) {
   return (
@@ -152,26 +221,58 @@ function TextEditor({ comp, onChange }) {
 }
 
 function AudioEditor({ comp, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
   const audio = getAudioEmbed(comp.url);
+
+  const handleFile = async (file) => {
+    setUploading(true); setError('');
+    try {
+      const url = await uploadFile(file, 'audio');
+      onChange({ ...comp, url });
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div className="form-group">
         <label className="form-label">Track Title</label>
         <input value={comp.title || ''} onChange={e => onChange({ ...comp, title: e.target.value })} placeholder="e.g. Summer Vibes - Beat #1" />
       </div>
-      <div className="form-group">
-        <label className="form-label">Audio URL</label>
-        <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="https://example.com/track.mp3" />
-        <span className="form-hint">Direct MP3/WAV, SoundCloud, Spotify, or Audiomack link (Boomplay links out instead of playing inline)</span>
+
+      <UploadDropzone
+        accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac,.mp3,.wav,.ogg,.m4a,.aac,.flac"
+        uploading={uploading}
+        onFile={handleFile}
+        label={comp.url && audio?.type === 'direct' ? '🎵 Replace Audio File' : '🎵 Choose Audio File to Upload'}
+        hint="MP3, WAV, OGG, M4A, AAC, or FLAC — max 50MB"
+      />
+      {error && <span className="form-error">{error}</span>}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0' }}>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span style={{ fontSize: 12, color: 'var(--text)' }}>OR</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
+
+      <div className="form-group">
+        <label className="form-label">Paste a Link Instead</label>
+        <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="Spotify, SoundCloud, Audiomack, or Boomplay link" />
+        <span className="form-hint">Use this if your track lives on Spotify, SoundCloud, Audiomack, or Boomplay</span>
+      </div>
+
       {comp.url && (
         <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
-          {audio?.type === 'direct' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Direct audio file detected</div>}
+          {audio?.type === 'direct' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Audio file ready</div>}
           {audio?.type === 'soundcloud' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ SoundCloud link detected</div>}
           {audio?.type === 'spotify' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Spotify link detected</div>}
           {audio?.type === 'audiomack' && <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>✓ Audiomack link detected</div>}
-          {audio?.type === 'linkout' && <div style={{ fontSize: 12, color: 'var(--accent2)', marginBottom: 8 }}>ℹ Boomplay has no inline player — this will show a "Listen on Boomplay" button instead</div>}
-          {audio?.type === 'unknown' && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>⚠ Link type not recognized — will try to play as direct audio, but may not work</div>}
+          {audio?.type === 'linkout' && <div style={{ fontSize: 12, color: 'var(--accent2)', marginBottom: 8 }}>ℹ Boomplay has no inline player — shows a "Listen on Boomplay" button instead</div>}
+          {audio?.type === 'unknown' && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>⚠ Link type not recognized — will try to play as direct audio</div>}
 
           {audio?.type === 'direct' && <audio controls style={{ width: '100%' }} src={audio.url} />}
           {audio?.type === 'soundcloud' && <iframe title="SoundCloud preview" width="100%" height="120" scrolling="no" frameBorder="no" allow="autoplay" src={audio.embedUrl} style={{ borderRadius: 8 }} />}
@@ -184,16 +285,35 @@ function AudioEditor({ comp, onChange }) {
     </div>
   );
 }
+
 function ImageEditor({ comp, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFile = async (file) => {
+    setUploading(true); setError('');
+    try {
+      const url = await uploadFile(file, 'image');
+      onChange({ ...comp, url });
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div className="form-group">
-        <label className="form-label">Image URL</label>
-        <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="https://example.com/image.jpg" />
-        <span className="form-hint">Paste an image URL (from Unsplash, your hosting, etc.)</span>
-      </div>
+      <UploadDropzone
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        uploading={uploading}
+        onFile={handleFile}
+        label={comp.url ? '📷 Replace Image' : '📷 Choose Image to Upload'}
+        hint="JPG, PNG, GIF, or WEBP — max 50MB"
+      />
+      {error && <span className="form-error">{error}</span>}
       {comp.url && (
-        <img src={comp.url} alt="" style={{ maxHeight: 160, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} onError={e => e.target.style.display='none'} />
+        <img src={comp.url} alt="" style={{ maxHeight: 200, width: '100%', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} onError={e => e.target.style.display='none'} />
       )}
       <div className="form-group">
         <label className="form-label">Caption (optional)</label>
@@ -205,10 +325,28 @@ function ImageEditor({ comp, onChange }) {
 
 function GalleryEditor({ comp, onChange }) {
   const images = comp.images || [];
-  const addImage = (url) => {
-    if (!url.trim()) return;
-    onChange({ ...comp, images: [...images, url.trim()] });
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFiles = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setUploading(true); setError('');
+    const uploaded = [];
+    try {
+      for (const file of files) {
+        const url = await uploadFile(file, 'image');
+        uploaded.push(url);
+      }
+      onChange({ ...comp, images: [...images, ...uploaded] });
+    } catch (err) {
+      setError(err.message || 'Some uploads failed');
+      if (uploaded.length) onChange({ ...comp, images: [...images, ...uploaded] });
+    } finally {
+      setUploading(false);
+    }
   };
+
   const removeImage = (i) => onChange({ ...comp, images: images.filter((_, idx) => idx !== i) });
 
   return (
@@ -218,15 +356,20 @@ function GalleryEditor({ comp, onChange }) {
         <input value={comp.title || ''} onChange={e => onChange({ ...comp, title: e.target.value })} placeholder="Gallery title" />
       </div>
       <div className="form-group">
-        <label className="form-label">Add Image URL</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input id="gallery-url-input" placeholder="https://example.com/image.jpg" onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();addImage(e.target.value);e.target.value='';} }} />
-          <button type="button" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap' }}
-            onClick={() => { const el = document.getElementById('gallery-url-input'); addImage(el.value); el.value=''; }}>
-            Add
-          </button>
-        </div>
-        <span className="form-hint">Press Enter or click Add after each URL</span>
+        <label style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: 20, border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
+          background: 'var(--bg2)', cursor: uploading ? 'wait' : 'pointer',
+        }}>
+          <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple
+            onChange={e => { const files = e.target.files; e.target.value = ''; handleFiles(files); }}
+            disabled={uploading} style={{ display: 'none' }} />
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-m)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {uploading ? (<><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Uploading...</>) : '📷 Choose Images to Upload'}
+          </span>
+        </label>
+        <span className="form-hint">You can select multiple images at once — JPG, PNG, GIF, or WEBP</span>
+        {error && <span className="form-error">{error}</span>}
       </div>
       {images.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8 }}>
@@ -308,75 +451,56 @@ function ContactEditor({ comp, onChange }) {
 }
 
 function VideoEditor({ comp, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFile = async (file) => {
+    setUploading(true); setError('');
+    try {
+      const url = await uploadFile(file, 'video');
+      onChange({ ...comp, url });
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div className="form-group">
         <label className="form-label">Title</label>
         <input value={comp.title || ''} onChange={e => onChange({ ...comp, title: e.target.value })} placeholder="Video title" />
       </div>
-      <div className="form-group">
-        <label className="form-label">YouTube URL</label>
-        <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
-        <span className="form-hint">Paste a YouTube video link</span>
+
+      <UploadDropzone
+        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+        uploading={uploading}
+        onFile={handleFile}
+        label={comp.url && isDirectVideoUrl(comp.url) ? '🎬 Replace Video File' : '🎬 Choose Video File to Upload'}
+        hint="MP4, WEBM, or MOV — max 50MB"
+      />
+      {error && <span className="form-error">{error}</span>}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0' }}>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span style={{ fontSize: 12, color: 'var(--text)' }}>OR</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
+
+      <div className="form-group">
+        <label className="form-label">Paste a YouTube Link Instead</label>
+        <input value={comp.url || ''} onChange={e => onChange({ ...comp, url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
+      </div>
+
+      {comp.url && isDirectVideoUrl(comp.url) && (
+        <video controls style={{ width: '100%', borderRadius: 8 }} src={comp.url} />
+      )}
+      {comp.url && !isDirectVideoUrl(comp.url) && (
+        <span className="form-hint">YouTube link set — it will play as an embedded video on the published site</span>
+      )}
     </div>
   );
-}
-function getYouTubeEmbedUrl(url) {
-  if (!url || !url.trim()) return null;
-  const trimmed = url.trim();
-  let videoId = null;
-
-  let m = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-  if (m) videoId = m[1];
-
-  if (!videoId) {
-    m = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/); // handles extra params before/after v=
-    if (m) videoId = m[1];
-  }
-  if (!videoId) {
-    m = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
-    if (m) videoId = m[1];
-  }
-  if (!videoId) {
-    m = trimmed.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{6,})/);
-    if (m) videoId = m[1];
-  }
-
-  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-}
-
-function getAudioEmbed(url) {
-  if (!url || !url.trim()) return null;
-  const trimmed = url.trim();
-
-  // Direct audio file
-  if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
-    return { type: 'direct', url: trimmed };
-  }
-  // SoundCloud
-  if (/soundcloud\.com/i.test(trimmed)) {
-    return {
-      type: 'soundcloud',
-      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(trimmed)}&color=%237c3aed&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&visual=false`,
-    };
-  }
-  // Spotify (track/album/playlist/episode)
-  if (/open\.spotify\.com\/(track|album|playlist|episode)\//i.test(trimmed)) {
-    return { type: 'spotify', embedUrl: trimmed.replace('open.spotify.com/', 'open.spotify.com/embed/') };
-  }
-  // Audiomack song
-  let m = trimmed.match(/audiomack\.com\/song\/([^/]+)\/([^/?]+)/i);
-  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed/song/${m[1]}/${m[2]}` };
-  // Audiomack album
-  m = trimmed.match(/audiomack\.com\/album\/([^/]+)\/([^/?]+)/i);
-  if (m) return { type: 'audiomack', embedUrl: `https://audiomack.com/embed-album/${m[1]}/${m[2]}` };
-  // Boomplay — no public embed exists, so we link out instead
-  if (/boomplay\.com/i.test(trimmed)) {
-    return { type: 'linkout', url: trimmed, label: '▶ Listen on Boomplay' };
-  }
-  // Unknown — try as direct audio, but flag it
-  return { type: 'unknown', url: trimmed };
 }
 
 function ComponentEditor({ comp, onChange }) {
@@ -474,7 +598,6 @@ export default function StudioBuilder({ user }) {
   };
 
   const addComponent = (type) => {
-    const catMeta = CATEGORIES.find(c => c.id === category);
     const newComp = {
       id: `c${Date.now()}`, type,
       content: '', title: '', subtitle: '', url: '', caption: '',
@@ -615,7 +738,6 @@ export default function StudioBuilder({ user }) {
                 {CATEGORIES.map(cat => (
                   <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', border: `1px solid ${category === cat.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', background: category === cat.id ? 'var(--accent-bg)' : 'var(--bg2)', transition: 'all 0.15s' }}>
                     <input type="radio" name="category" value={cat.id} checked={category === cat.id} onChange={() => setCategory(cat.id)} style={{ width: 'auto', margin: 0 }} />
-                    <span style={{ fontSize: 24 }}>{cat.icon}</span>
                     <div>
                       <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>{cat.label}</div>
                       <div style={{ fontSize: 13, color: 'var(--text)' }}>{cat.desc}</div>

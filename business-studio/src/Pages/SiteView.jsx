@@ -106,6 +106,11 @@ function SafeImage({ src, alt, style }) {
   return <img src={resolved} alt={alt} style={style} onError={() => setFailed(true)} />;
 }
 
+function isDirectVideoUrl(url) {
+  if (!url) return false;
+  return /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url) || url.includes('/video/upload/');
+}
+
 export default function SiteView() {
   const { subdomain } = useParams();
   const [site, setSite] = useState(null);
@@ -286,6 +291,7 @@ function RenderComponent({ comp, theme }) {
 
   if (comp.type === 'video') {
     const embedUrl = getYouTubeEmbedUrl(comp.url);
+    const isDirectVideo = isDirectVideoUrl(comp.url);
     return (
       <div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.textH, marginBottom: 12 }}>{comp.title || 'Video'}</h2>
@@ -293,8 +299,12 @@ function RenderComponent({ comp, theme }) {
           <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 12 }}>
             <iframe src={embedUrl} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', borderRadius: 12 }} title={comp.title || 'Video'} allowFullScreen />
           </div>
+        ) : isDirectVideo ? (
+          <video controls style={{ width: '100%', borderRadius: 12 }} src={comp.url}>
+            <track kind="captions" />
+          </video>
         ) : comp.url ? (
-          <div style={{ padding: 24, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>⚠ Couldn't recognize this as a YouTube link</div>
+          <div style={{ padding: 24, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>⚠ Couldn't recognize this video link</div>
         ) : (
           <div style={{ padding: 60, textAlign: 'center', background: theme.bg2, borderRadius: 12, color: theme.text }}>🎬 Video section</div>
         )}
