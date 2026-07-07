@@ -20,12 +20,34 @@ import threading
 
 load_dotenv()
 
-# Configure Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
+def configure_cloudinary():
+    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+    api_key = os.getenv('CLOUDINARY_API_KEY')
+    api_secret = os.getenv('CLOUDINARY_API_SECRET')
+    if cloud_name and api_key and api_secret:
+        cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
+        return None
+    missing = [
+        name for name, value in (
+            ('CLOUDINARY_CLOUD_NAME', cloud_name),
+            ('CLOUDINARY_API_KEY', api_key),
+            ('CLOUDINARY_API_SECRET', api_secret),
+        ) if not value
+    ]
+    return missing
+
+CLOUDINARY_MISSING = configure_cloudinary()
+if CLOUDINARY_MISSING:
+    print(f'Warning: Cloudinary not configured. Missing env vars: {", ".join(CLOUDINARY_MISSING)}')
+
+def cloudinary_config_error():
+    missing = CLOUDINARY_MISSING or configure_cloudinary()
+    if missing:
+        return jsonify({
+            'status': 'error',
+            'message': f'File uploads are not configured on the server. Missing: {", ".join(missing)}',
+        }), 503
+    return None
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -314,6 +336,10 @@ def upload_profile_picture():
     if file.filename == '':
         return jsonify({'status': 'error', 'message': 'No file selected'}), 400
 
+    config_error = cloudinary_config_error()
+    if config_error:
+        return config_error
+
     try:
         # Upload to Cloudinary
         result = cloudinary.uploader.upload(
@@ -367,6 +393,10 @@ def upload_media():
 
     # Cloudinary stores both audio and video under resource_type "video"
     resource_type = 'image' if media_type == 'image' else 'video'
+
+    config_error = cloudinary_config_error()
+    if config_error:
+        return config_error
 
     try:
         upload_kwargs = {'folder': f'business-studio/{media_type}', 'resource_type': resource_type}
