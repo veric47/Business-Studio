@@ -1,5 +1,5 @@
 // Upload straight to Cloudinary from the browser — no .env needed for this to work.
-const CLOUD = 'wgzmvzyy';
+const CLOUD = 'businessStudio';
 const PRESET = 'BusinessStudio';
 
 export async function uploadToCloudinary(file, type = 'image') {
